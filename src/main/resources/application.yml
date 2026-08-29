@@ -194,6 +194,12 @@ prabhix:
           - ${ADMIN_URL:http://localhost:5174}/auth/callback
         post-logout-redirect-uris:
           - ${ADMIN_URL:http://localhost:5174}/
+      - client-id: prabhix-mailroom
+        name: Prabhix Mailroom
+        redirect-uris:
+          - ${MAILROOM_URL:http://localhost:5175}/auth/callback
+        post-logout-redirect-uris:
+          - ${MAILROOM_URL:http://localhost:5175}/
       # The scheme is the applicationId, which for the OneOps flavor is still `com.prabhix.operator` —
       # what the app was called before the product was named. Renaming the id would publish a second,
       # unrelated app and orphan every phone that already has this one, so it stays.
@@ -210,6 +216,14 @@ prabhix:
         redirect-uris:
           - com.prabhix.admin:/oauth2redirect
           - com.prabhix.admin.debug:/oauth2redirect
+      # A separate client from prabhix-mailroom, which is the web app: the redirect URI is a private-use
+      # scheme rather than an https callback, and one client holding both would let a redirect registered
+      # for the browser be used by an app and the other way round.
+      - client-id: prabhix-mailroom-android
+        name: Prabhix Mailroom for Android
+        redirect-uris:
+          - com.prabhix.mailroom:/oauth2redirect
+          - com.prabhix.mailroom.debug:/oauth2redirect
 
     mail:
       from: ${IDENTITY_MAIL_FROM:security@prabhixtechnologies.com}
