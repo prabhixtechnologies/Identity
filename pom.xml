@@ -45,6 +45,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- The OAuth2/OIDC protocol surface: /oauth2/authorize, /oauth2/token, /userinfo,
+             introspection, revocation and RP-initiated logout, with PKCE and consent.
+             Deliberately not hand-written. An authorization server is one of the few places where a
+             subtle mistake is a full account takeover, and this one is OIDC-certified. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-authorization-server</artifactId>
+        </dependency>
+        <!-- Server-rendered login and consent pages. The one login UI every product redirects to has
+             to be served from this origin, so that the session cookie which makes single sign-on work
+             is set here and nowhere else. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>

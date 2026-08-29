@@ -43,6 +43,9 @@ public final class TestProperties {
                 new SessionCookie("pbx_session", "", true, "Lax"),
                 new Urls("https://app.prabhixtechnologies.com", "https://admin.prabhixtechnologies.com"),
                 new Sso(""),
+                // No OAuth clients. Every test here exercises the direct sign-in path or key
+                // handling; the authorization code flow needs a booted server, not a unit test.
+                List.of(),
                 "test-service-token");
     }
 
@@ -59,6 +62,7 @@ public final class TestProperties {
                 base.sessionCookie(),
                 base.urls(),
                 base.sso(),
+                base.clients(),
                 base.serviceToken());
     }
 }

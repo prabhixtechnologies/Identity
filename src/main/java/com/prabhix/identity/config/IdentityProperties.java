@@ -23,7 +23,43 @@ public record IdentityProperties(
         SessionCookie sessionCookie,
         Urls urls,
         Sso sso,
+        @DefaultValue List<Client> clients,
         String serviceToken) {
+
+    /**
+     * A first-party OAuth client, seeded into {@code oauth2_registered_client} at startup.
+     *
+     * <p>Configured rather than migrated because redirect URIs are environment-specific — localhost in
+     * development, real hostnames in production — and a migration that hard-codes one is wrong
+     * everywhere else. Third-party clients, when there are any, are registered through the admin
+     * console instead and never appear here.
+     *
+     * @param clientId stable public identifier, e.g. {@code prabhix-console}
+     * @param name shown on the consent screen, for the clients that ever see one
+     * @param secret blank for a public client — a browser SPA or a mobile app, neither of which can
+     *     keep one. Those are secured by PKCE instead, which is why S256 is mandatory below.
+     * @param redirectUris compared for exact equality, never by prefix or wildcard. A permissive match
+     *     here is an open redirect, and an open redirect on {@code /authorize} hands the authorization
+     *     code to whoever crafted the link.
+     * @param postLogoutRedirectUris where RP-initiated logout may return to, matched the same way
+     * @param scopes what this client may ask for. {@code openid} is required for an id_token.
+     * @param firstParty skips consent. Asking somebody to authorise Prabhix to access Prabhix is
+     *     noise, and teaching people to click through consent screens is its own hazard. Never set
+     *     this for a client owned by anyone else.
+     */
+    public record Client(
+            String clientId,
+            String name,
+            @DefaultValue("") String secret,
+            @DefaultValue List<String> redirectUris,
+            @DefaultValue List<String> postLogoutRedirectUris,
+            @DefaultValue({"openid", "profile", "email"}) List<String> scopes,
+            @DefaultValue("true") boolean firstParty) {
+
+        public boolean isPublicClient() {
+            return secret == null || secret.isBlank();
+        }
+    }
 
     /**
      * @param accessTokenTtl matches the platform's 15 minutes. Short because access tokens carry no

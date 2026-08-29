@@ -156,6 +156,41 @@ prabhix:
     sso:
       google-client-id: ${GOOGLE_CLIENT_ID:}
 
+    # First-party OAuth clients, seeded on every boot by RegisteredClientSeeder and updated in place.
+    #
+    # Redirect URIs are matched for exact equality — never by prefix and never with a wildcard, because
+    # a permissive match here is an open redirect and an open redirect on /authorize hands the
+    # authorization code to whoever crafted the link. Every URI a product might land on must be listed.
+    #
+    # No secrets: browser apps and mobile apps cannot keep one. They are public clients secured by
+    # PKCE, which is mandatory rather than optional.
+    #
+    # The Android entries use the app's own scheme, which is how AppAuth receives the redirect back
+    # from a Custom Tab. A WebView would not work and must not be used: it has its own cookie jar, so
+    # signing in there would not be visible to the other apps and single sign-on would quietly stop
+    # being single.
+    clients:
+      - client-id: prabhix-console
+        name: Prabhix OneOps
+        redirect-uris:
+          - ${CONSOLE_URL:http://localhost:5173}/auth/callback
+        post-logout-redirect-uris:
+          - ${CONSOLE_URL:http://localhost:5173}/
+      - client-id: prabhix-admin
+        name: Prabhix Admin
+        redirect-uris:
+          - ${ADMIN_URL:http://localhost:5174}/auth/callback
+        post-logout-redirect-uris:
+          - ${ADMIN_URL:http://localhost:5174}/
+      - client-id: prabhix-oneops-android
+        name: Prabhix OneOps for Android
+        redirect-uris:
+          - com.prabhix.oneops:/oauth2redirect
+      - client-id: prabhix-admin-android
+        name: Prabhix Admin for Android
+        redirect-uris:
+          - com.prabhix.admin:/oauth2redirect
+
     mail:
       from: ${IDENTITY_MAIL_FROM:security@prabhixtechnologies.com}
       from-name: ${IDENTITY_MAIL_FROM_NAME:Prabhix Technologies}

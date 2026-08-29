@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -27,7 +28,15 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final IdentityProperties properties;
 
+    /**
+     * The API chain, and the last one consulted.
+     *
+     * <p>Ordered after the authorization server (1) and the login pages (2) because it matches
+     * everything they do not. Put first, its {@code anyRequest().authenticated()} would swallow
+     * {@code /oauth2/authorize} and answer a browser with a JSON 401 instead of a login page.
+     */
     @Bean
+    @Order(3)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // No CSRF token. Nothing here is authenticated by a cookie alone: the session cookie
