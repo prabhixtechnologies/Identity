@@ -1,0 +1,30 @@
+# --- Secrets ---
+# This service holds the one private key that mints tokens for every Prabhix product. A *.pem in the
+# working tree is the signing key far more often than it is anything else, so the pattern is here
+# before any other rule.
+*.pem
+*.key
+*.jks
+*.p12
+.env
+.env.*
+!.env.example
+
+# --- Java / Maven ---
+target/
+target-*/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# --- Logs ---
+*.log
+
+# --- Editors / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db

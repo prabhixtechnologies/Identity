@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: prabhix-identity
+
+  profiles:
+    default: dev
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+server:
+  # 8081, because Caddy fronts both this and the platform backend on 8080 as one API origin.
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+  # The issuer in a discovery document has to be the public https URL, not the container's own
+  # http://identity:8081, so the proxy's X-Forwarded-* headers have to be trusted.
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+
+logging:
+  level:
+    root: INFO
+    com.prabhix.identity: ${LOG_LEVEL:INFO}
+
+prabhix:
+  identity:
+    # Goes into every token's iss claim and is the base for the two well-known URLs, so it must be
+    # the address clients actually reach — id.prabhixtechnologies.com, not the container hostname.
+    # Changing it invalidates every token already issued, since verification requires an exact match.
+    issuer: ${IDENTITY_ISSUER:http://localhost:8081}
+
+    token:
+      access-token-ttl: ${IDENTITY_ACCESS_TTL:PT15M}
+
+    signing:
+      # PKCS#8 PEM. Blank generates a throwaway key, which SigningKeyProvider allows only under a
+      # local profile — a restart would otherwise sign every user out.
+      #   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+      private-key: ${IDENTITY_SIGNING_KEY:}
+      # X.509 PEM public keys that no longer sign but stay in the JWKS for one access-token lifetime
+      # after a rotation, so tokens issued just before the switch keep verifying.
+      retired-public-keys: ${IDENTITY_RETIRED_PUBLIC_KEYS:}
