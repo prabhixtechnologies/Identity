@@ -182,14 +182,22 @@ prabhix:
           - ${ADMIN_URL:http://localhost:5174}/auth/callback
         post-logout-redirect-uris:
           - ${ADMIN_URL:http://localhost:5174}/
+      # The scheme is the applicationId, which for the OneOps flavor is still `com.prabhix.operator` —
+      # what the app was called before the product was named. Renaming the id would publish a second,
+      # unrelated app and orphan every phone that already has this one, so it stays.
+      #
+      # The .debug variants are listed because `applicationIdSuffix = ".debug"` gives debug builds a
+      # different scheme, and omitting them means no developer can sign in to a debug build.
       - client-id: prabhix-oneops-android
         name: Prabhix OneOps for Android
         redirect-uris:
-          - com.prabhix.oneops:/oauth2redirect
+          - com.prabhix.operator:/oauth2redirect
+          - com.prabhix.operator.debug:/oauth2redirect
       - client-id: prabhix-admin-android
         name: Prabhix Admin for Android
         redirect-uris:
           - com.prabhix.admin:/oauth2redirect
+          - com.prabhix.admin.debug:/oauth2redirect
 
     mail:
       from: ${IDENTITY_MAIL_FROM:security@prabhixtechnologies.com}
