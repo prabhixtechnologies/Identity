@@ -1,6 +1,7 @@
 package com.prabhix.identity.token;
 
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.config.TestProperties;
 import com.prabhix.identity.jwks.SigningKeyProvider;
 import com.prabhix.identity.jwks.TestKeys;
 import io.jsonwebtoken.Jwts;
@@ -21,13 +22,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TokenServiceTest {
 
-    private static final String ISSUER = "https://id.prabhixtechnologies.com";
+    private static final String ISSUER = TestProperties.ISSUER;
 
     private static IdentityProperties properties(String privateKey, List<String> retired) {
-        return new IdentityProperties(
-                ISSUER,
-                new IdentityProperties.Token(Duration.ofMinutes(15)),
-                new IdentityProperties.Signing(privateKey, retired));
+        return TestProperties.signing(privateKey, retired);
     }
 
     private static IdentityClaims claims() {
@@ -130,10 +128,8 @@ class TokenServiceTest {
     @DisplayName("a token issued for a different issuer is rejected")
     void rejectsForeignIssuer() {
         KeyPair pair = TestKeys.pair();
-        IdentityProperties staging = new IdentityProperties(
-                "https://id.staging.prabhixtechnologies.com",
-                new IdentityProperties.Token(Duration.ofMinutes(15)),
-                new IdentityProperties.Signing(TestKeys.privatePem(pair), List.of()));
+        IdentityProperties staging = TestProperties.forIssuer(
+                "https://id.staging.prabhixtechnologies.com", TestKeys.privatePem(pair), List.of());
         String stagingToken = new TokenService(provider(staging), staging).issue(claims()).token();
 
         IdentityProperties production = properties(TestKeys.privatePem(pair), List.of());
@@ -148,10 +144,8 @@ class TokenServiceTest {
     @Test
     @DisplayName("an expired token is rejected")
     void rejectsExpiredToken() {
-        IdentityProperties expired = new IdentityProperties(
-                ISSUER,
-                new IdentityProperties.Token(Duration.ofSeconds(-60)),
-                new IdentityProperties.Signing(TestKeys.privatePem(TestKeys.pair()), List.of()));
+        IdentityProperties expired = TestProperties.withAccessTtl(
+                TestKeys.privatePem(TestKeys.pair()), Duration.ofSeconds(-60));
         TokenService service = new TokenService(provider(expired), expired);
 
         String token = service.issue(claims()).token();

@@ -12,6 +12,62 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 
+  datasource:
+    # Its own database, not its own schema and not a shared one. The five tables here are the only
+    # writer of themselves, and a separate database is what makes "the platform cannot reach into
+    # users" a fact about the credentials rather than a convention nobody enforces.
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/prabhix_identity}
+    username: ${IDENTITY_DB_USER:prabhix}
+    password: ${IDENTITY_DB_PASSWORD:prabhix}
+    hikari:
+      # Small on purpose. Sign-in traffic is a fraction of API traffic, and the pool competes with
+      # the platform's for the same Postgres on a single-instance deployment.
+      maximum-pool-size: ${IDENTITY_DB_POOL:10}
+      minimum-idle: 2
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema. ddl-auto would let an entity change alter production silently.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 25
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Off: this database starts empty, so a baseline would only mask a first migration that failed.
+    baseline-on-migrate: false
+
+  data:
+    redis:
+      # Shared with the platform, deliberately. The deny list is one set of keys that identity writes
+      # and every product reads; two Redis instances would mean a revocation only half the fleet saw.
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: true
+          # Without these a relay that stops answering hangs the request thread until the OS gives
+          # up, which at sign-in volumes exhausts the pool long before anyone notices the relay.
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 server:
   # 8081, because Caddy fronts both this and the platform backend on 8080 as one API origin.
   port: ${SERVER_PORT:8081}
@@ -56,6 +112,8 @@ prabhix:
 
     token:
       access-token-ttl: ${IDENTITY_ACCESS_TTL:PT15M}
+      # Also how long a signed-in browser stays signed in: the session cookie shares this knob.
+      refresh-token-ttl: ${IDENTITY_REFRESH_TTL:P30D}
 
     signing:
       # PKCS#8 PEM. Blank generates a throwaway key, which SigningKeyProvider allows only under a
@@ -65,3 +123,43 @@ prabhix:
       # X.509 PEM public keys that no longer sign but stay in the JWKS for one access-token lifetime
       # after a rotation, so tokens issued just before the switch keep verifying.
       retired-public-keys: ${IDENTITY_RETIRED_PUBLIC_KEYS:}
+
+    password:
+      min-length: 10
+      # Imported hashes verify at whatever cost they were written with, since bcrypt stores it inside
+      # the hash. This only sets the cost of hashes written from now on.
+      bcrypt-strength: 12
+
+    lockout:
+      max-failed-attempts: 5
+      duration: PT15M
+
+    challenge:
+      otp-length: 6
+      ttl: PT10M
+      max-attempts: 5
+
+    session-cookie:
+      name: ${SESSION_COOKIE_NAME:pbx_session}
+      # The registrable parent domain, so every Prabhix hostname sees the same cookie and one sign-in
+      # covers all of them. Empty means host-only, which is right for local development.
+      domain: ${SESSION_COOKIE_DOMAIN:}
+      secure: ${SESSION_COOKIE_SECURE:true}
+      same-site: ${SESSION_COOKIE_SAME_SITE:Lax}
+
+    urls:
+      # Console router paths, not API paths — emailed links land in the browser. These drifted apart
+      # from the router once and every magic link 404'd.
+      console: ${CONSOLE_URL:http://localhost:5173}
+      admin: ${ADMIN_URL:http://localhost:5174}
+
+    sso:
+      google-client-id: ${GOOGLE_CLIENT_ID:}
+
+    mail:
+      from: ${IDENTITY_MAIL_FROM:security@prabhixtechnologies.com}
+      from-name: ${IDENTITY_MAIL_FROM_NAME:Prabhix Technologies}
+
+    # Shared secret a product presents to read user records from /internal. Blank disables the
+    # endpoint, which is the right default for a deployment nobody has given one.
+    service-token: ${IDENTITY_SERVICE_TOKEN:}

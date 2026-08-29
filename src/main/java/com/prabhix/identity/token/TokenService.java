@@ -74,6 +74,19 @@ public class TokenService {
      *     not publish, or issued by a different issuer
      */
     public IdentityClaims verify(String token) {
+        return verified(token).claims();
+    }
+
+    /**
+     * Verifies and also returns {@code iat}.
+     *
+     * <p>Separate from {@link #verify} because only the deny-list check needs the issue time — a
+     * user-scoped revocation denies tokens minted before it and lets later ones through — and every
+     * other caller would have to ignore the extra field.
+     *
+     * @throws io.jsonwebtoken.JwtException as {@link #verify}
+     */
+    public VerifiedToken verified(String token) {
         Jws<Claims> jws = Jwts.parser()
                 .keyLocator(new LocatorAdapter<Key>() {
                     @Override
@@ -91,13 +104,19 @@ public class TokenService {
                 .parseSignedClaims(token);
 
         Claims claims = jws.getPayload();
-        return new IdentityClaims(
+        IdentityClaims identity = new IdentityClaims(
                 UUID.fromString(claims.getSubject()),
                 claims.get(CLAIM_EMAIL, String.class),
                 Boolean.TRUE.equals(claims.get(CLAIM_EMAIL_VERIFIED, Boolean.class)),
                 claims.get(CLAIM_NAME, String.class),
                 UUID.fromString(claims.get(CLAIM_SESSION_ID, String.class)),
                 authenticationMethods(claims));
+        Date issuedAt = claims.getIssuedAt();
+        return new VerifiedToken(identity, issuedAt == null ? null : issuedAt.toInstant());
+    }
+
+    /** @param issuedAt null for a token that carries no {@code iat}, which the deny list treats as old */
+    public record VerifiedToken(IdentityClaims claims, Instant issuedAt) {
     }
 
     @SuppressWarnings("unchecked")

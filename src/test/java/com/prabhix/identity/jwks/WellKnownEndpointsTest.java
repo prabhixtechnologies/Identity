@@ -1,6 +1,7 @@
 package com.prabhix.identity.jwks;
 
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.config.TestProperties;
 import com.prabhix.identity.oidc.DiscoveryController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,7 +9,6 @@ import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.time.Duration;
 import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -22,13 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 class WellKnownEndpointsTest {
 
-    private static final String ISSUER = "https://id.prabhixtechnologies.com";
+    private static final String ISSUER = TestProperties.ISSUER;
 
     private static IdentityProperties properties(String privateKey, List<String> retired) {
-        return new IdentityProperties(
-                ISSUER,
-                new IdentityProperties.Token(Duration.ofMinutes(15)),
-                new IdentityProperties.Signing(privateKey, retired));
+        return TestProperties.signing(privateKey, retired);
     }
 
     @Test

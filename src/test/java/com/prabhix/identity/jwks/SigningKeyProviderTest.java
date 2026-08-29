@@ -1,12 +1,12 @@
 package com.prabhix.identity.jwks;
 
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.config.TestProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
 import java.security.KeyPair;
-import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,10 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SigningKeyProviderTest {
 
     private static IdentityProperties properties(String privateKey, List<String> retired) {
-        return new IdentityProperties(
-                "https://id.prabhixtechnologies.com",
-                new IdentityProperties.Token(Duration.ofMinutes(15)),
-                new IdentityProperties.Signing(privateKey, retired));
+        return TestProperties.signing(privateKey, retired);
     }
 
     private static MockEnvironment environment(String... profiles) {
