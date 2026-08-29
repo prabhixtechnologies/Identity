@@ -29,7 +29,10 @@ public class ChallengeService {
     /** @return the raw secret, which exists nowhere else — only its hash is stored */
     @Transactional
     public Raised raise(ChallengePurpose purpose, UUID userId, String destination, String ipAddress) {
-        String raw = purpose == ChallengePurpose.EMAIL_OTP
+        // A short numeric code for anything typed back in by hand, a long random token for anything
+        // clicked. Sending a 256-bit token by SMS would be unusable, and putting a six-digit code in a
+        // link would be guessable by anyone who wanted to try a million of them.
+        String raw = purpose.isCode()
                 ? Secrets.numericCode(properties.challenge().otpLength())
                 : Secrets.token();
 

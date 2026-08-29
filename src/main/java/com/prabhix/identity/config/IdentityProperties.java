@@ -23,8 +23,26 @@ public record IdentityProperties(
         SessionCookie sessionCookie,
         Urls urls,
         Sso sso,
+        @DefaultValue Sms sms,
         @DefaultValue List<Client> clients,
         String serviceToken) {
+
+    /**
+     * Outbound SMS, for phone OTP sign-in.
+     *
+     * @param accountSid blank disables phone sign-in entirely, which is the right default: a
+     *     deployment with no provider should refuse visibly rather than accept an OTP request and
+     *     never deliver it.
+     * @param messagingServiceSid preferred over {@code fromNumber} where both are set. For Indian
+     *     destinations this is the one that carries DLT sender-id and template registration, without
+     *     which the carrier drops the message and the API call still succeeds.
+     */
+    public record Sms(
+            @DefaultValue("") String accountSid,
+            @DefaultValue("") String authToken,
+            @DefaultValue("") String fromNumber,
+            @DefaultValue("") String messagingServiceSid) {
+    }
 
     /**
      * A first-party OAuth client, seeded into {@code oauth2_registered_client} at startup.

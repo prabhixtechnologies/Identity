@@ -55,6 +55,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/session/token",
                                 "/api/v1/auth/magic-link/**",
                                 "/api/v1/auth/otp/**",
+                                // Sign-in only. /phone/verify/** is deliberately not here: binding a
+                                // number to an account is an act taken from inside a session, or it
+                                // is a way to assert somebody else's number about their account.
+                                "/api/v1/auth/phone/otp/request",
+                                "/api/v1/auth/phone/otp/verify",
                                 "/api/v1/auth/sso/**",
                                 "/api/v1/auth/password/forgot",
                                 "/api/v1/auth/password/reset",

@@ -43,6 +43,9 @@ public final class TestProperties {
                 new SessionCookie("pbx_session", "", true, "Lax"),
                 new Urls("https://app.prabhixtechnologies.com", "https://admin.prabhixtechnologies.com"),
                 new Sso(""),
+                // No SMS provider, so the phone flows refuse. Any test that needs them stubs
+                // SmsSender directly rather than reaching a real one from a unit test.
+                new IdentityProperties.Sms("", "", "", ""),
                 // No OAuth clients. Every test here exercises the direct sign-in path or key
                 // handling; the authorization code flow needs a booted server, not a unit test.
                 List.of(),
@@ -62,6 +65,7 @@ public final class TestProperties {
                 base.sessionCookie(),
                 base.urls(),
                 base.sso(),
+                base.sms(),
                 base.clients(),
                 base.serviceToken());
     }

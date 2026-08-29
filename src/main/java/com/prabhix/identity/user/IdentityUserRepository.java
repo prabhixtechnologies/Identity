@@ -48,6 +48,19 @@ public interface IdentityUserRepository extends JpaRepository<IdentityUser, UUID
 
     Optional<IdentityUser> findByIdAndDeletedAtIsNull(UUID id);
 
+    /**
+     * Finds a live account by verified phone number, for SMS sign-in.
+     *
+     * <p>Verified only, deliberately. An unverified number is one somebody typed into a form, so
+     * treating it as a way in would let anyone claim an account by entering its owner's number — the
+     * verification step is the entire difference between a factor and an assertion.
+     *
+     * <p>Takes E.164 with no separators. {@code PhoneAuthService} normalizes, because the column is
+     * plain {@code varchar} and {@code +91 98765 43210} would otherwise be a different number from
+     * {@code +919876543210}.
+     */
+    Optional<IdentityUser> findByPhoneAndPhoneVerifiedAtIsNotNullAndDeletedAtIsNull(String phone);
+
     /** Batch lookup for a product filling in its local mirror after a token arrives. */
     List<IdentityUser> findByIdInAndDeletedAtIsNull(Collection<UUID> ids);
 }

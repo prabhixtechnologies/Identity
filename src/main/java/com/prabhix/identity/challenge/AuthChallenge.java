@@ -83,6 +83,15 @@ public class AuthChallenge extends BaseEntity {
     }
 
     public enum ChallengePurpose {
-        MAGIC_LINK, EMAIL_OTP, SMS_OTP, WHATSAPP_OTP, PASSWORD_RESET, EMAIL_VERIFY
+        MAGIC_LINK, EMAIL_OTP, SMS_OTP, WHATSAPP_OTP, PASSWORD_RESET, EMAIL_VERIFY;
+
+        /**
+         * Whether the secret is a short code the person types back, rather than a long token they
+         * click. The two are not interchangeable: a 256-bit token is unusable over SMS, and a
+         * six-digit code in a link is guessable by anyone willing to try a million of them.
+         */
+        public boolean isCode() {
+            return this == EMAIL_OTP || this == SMS_OTP || this == WHATSAPP_OTP;
+        }
     }
 }

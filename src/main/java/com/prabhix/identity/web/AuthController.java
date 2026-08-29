@@ -2,6 +2,7 @@ package com.prabhix.identity.web;
 
 import com.prabhix.identity.challenge.EmailVerificationService;
 import com.prabhix.identity.challenge.PasswordlessService;
+import com.prabhix.identity.challenge.PhoneAuthService;
 import com.prabhix.identity.security.AuthenticatedCaller;
 import com.prabhix.identity.session.DeviceSession;
 import com.prabhix.identity.session.SessionCookieService;
@@ -21,6 +22,9 @@ import com.prabhix.identity.web.AuthDtos.LogoutRequest;
 import com.prabhix.identity.web.AuthDtos.MagicLinkVerifyRequest;
 import com.prabhix.identity.web.AuthDtos.OtpVerifyRequest;
 import com.prabhix.identity.web.AuthDtos.PasswordResetRequest;
+import com.prabhix.identity.web.AuthDtos.PhoneOtpVerifyRequest;
+import com.prabhix.identity.web.AuthDtos.PhoneRequest;
+import com.prabhix.identity.web.AuthDtos.PhoneVerifyConfirmRequest;
 import com.prabhix.identity.web.AuthDtos.RefreshRequest;
 import com.prabhix.identity.web.AuthDtos.RegisterRequest;
 import com.prabhix.identity.web.AuthDtos.SessionListResponse;
@@ -61,6 +65,7 @@ public class AuthController {
     private final SessionCookieService cookies;
     private final CredentialService credentials;
     private final PasswordlessService passwordless;
+    private final PhoneAuthService phone;
     private final EmailVerificationService emailVerification;
     private final GoogleSsoService googleSso;
 
@@ -180,6 +185,49 @@ public class AuthController {
                 device(request.deviceId(), request.deviceName(), request.deviceType(), httpRequest));
         cookies.issue(httpResponse, response.sessionId());
         return response;
+    }
+
+    /**
+     * Sign-in by SMS code, for an account whose number is already verified.
+     *
+     * <p>Unlike the email flows, an unknown destination sends nothing at all rather than nothing
+     * visible: every SMS costs money, so accepting requests for numbers with no account would make
+     * this endpoint a way to spend it.
+     */
+    @PostMapping("/phone/otp/request")
+    public AckResponse requestPhoneOtp(@Valid @RequestBody PhoneRequest request,
+                                       HttpServletRequest httpRequest) {
+        return phone.requestOtp(request.phone(), clientIp(httpRequest));
+    }
+
+    @PostMapping("/phone/otp/verify")
+    public TokenResponse verifyPhoneOtp(@Valid @RequestBody PhoneOtpVerifyRequest request,
+                                        HttpServletRequest httpRequest,
+                                        HttpServletResponse httpResponse) {
+        TokenResponse response = phone.verifyOtp(request.phone(), request.code(),
+                device(request.deviceId(), request.deviceName(), request.deviceType(), httpRequest));
+        cookies.issue(httpResponse, response.sessionId());
+        return response;
+    }
+
+    /**
+     * Binds a number to the caller's own account.
+     *
+     * <p>Authenticated, and that is the design rather than an oversight: a number registered from
+     * outside a session is one an attacker can assert about somebody else, and the victim finds out
+     * when it is used to sign in as them.
+     */
+    @PostMapping("/phone/verify/request")
+    public AckResponse requestPhoneVerification(@AuthenticationPrincipal AuthenticatedCaller caller,
+                                                @Valid @RequestBody PhoneRequest request,
+                                                HttpServletRequest httpRequest) {
+        return phone.requestVerification(caller.userId(), request.phone(), clientIp(httpRequest));
+    }
+
+    @PostMapping("/phone/verify/confirm")
+    public AckResponse confirmPhoneVerification(@AuthenticationPrincipal AuthenticatedCaller caller,
+                                                @Valid @RequestBody PhoneVerifyConfirmRequest request) {
+        return phone.confirmVerification(caller.userId(), request.phone(), request.code());
     }
 
     @PostMapping("/password/forgot")

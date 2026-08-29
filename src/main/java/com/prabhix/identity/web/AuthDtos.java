@@ -94,6 +94,29 @@ public final class AuthDtos {
             String deviceType) {
     }
 
+    /**
+     * A phone number in international form.
+     *
+     * <p>Not validated by pattern here. {@code PhoneAuthService} strips separators and then checks
+     * E.164, and a bean-validation regex would reject {@code +91 98765 43210} before the stripping
+     * that would have made it acceptable.
+     */
+    public record PhoneRequest(@NotBlank String phone) {
+    }
+
+    public record PhoneOtpVerifyRequest(
+            @NotBlank String phone,
+            @NotBlank String code,
+            String deviceId,
+            String deviceName,
+            String deviceType) {
+    }
+
+    public record PhoneVerifyConfirmRequest(
+            @NotBlank String phone,
+            @NotBlank String code) {
+    }
+
     public record PasswordResetRequest(
             @NotBlank String token,
             @NotBlank @Size(min = 10, max = 128) String newPassword) {
