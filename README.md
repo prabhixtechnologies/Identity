@@ -88,12 +88,13 @@ that same bug with a locked-out user at the end of it.
 
 ## Data
 
-Its own Postgres database, `prabhix_identity`, on the same instance as the platform's. A separate
-database rather than a schema, so "the platform cannot read the users table" is enforced by the
-credentials rather than left to convention.
+Its own Postgres database, `identity`, on the same instance as the platform's `oneops`, owned by its
+own `identity` role. A separate database rather than a schema, and a separate role rather than the
+platform's, so "the platform cannot read the users table" is enforced by the credentials rather than
+left to convention — a database the platform's own user owned would not be a boundary at all.
 
-Five tables, copied column-for-column from the platform's `V1__core_foundation.sql` so an import is a
-straight insert: `users`, `auth_identities`, `device_sessions`, `refresh_tokens`, `auth_challenges`.
+Five tables, copied column-for-column from the platform's schema so an import is a straight insert:
+`users`, `auth_identities`, `device_sessions`, `refresh_tokens`, `auth_challenges`.
 Two columns did not come across — `users.default_organization_id` and `users.notification_prefs` —
 because only one product could ever populate them.
 
@@ -177,8 +178,8 @@ pair.
 
 ## Build
 
-Production targets Java 21. `-Djava.version=17` builds on an older local JDK, as in the platform —
-nothing here needs 21 to compile.
+Production targets Java 25, the current LTS. `-Djava.version=17` builds on an older local JDK, as in
+the platform — it only lowers `--release`, and nothing here needs a newer language level to compile.
 
 ```bash
 mvn -Djava.version=17 test              # unit tests

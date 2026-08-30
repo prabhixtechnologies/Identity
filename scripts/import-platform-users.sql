@@ -1,4 +1,4 @@
--- Seeds prabhix_identity from the platform's users table.
+-- Seeds the identity database from the platform's users table.
 --
 -- Run once, before the gateway is pointed at this service. Reruns are safe: every insert is
 -- ON CONFLICT DO NOTHING keyed on the same primary keys, so a second run adds only what a first run
@@ -10,7 +10,7 @@
 --
 -- Usage, from the EC2 host:
 --
---   docker compose exec -T postgres psql -U prabhix -d prabhix_identity \
+--   docker compose exec -T postgres psql -U identity -d identity \
 --     -v ON_ERROR_STOP=1 -f - < Identity/scripts/import-platform-users.sql
 --
 -- The foreign-data wrapper is what makes this one statement rather than a dump-and-load. It reads
