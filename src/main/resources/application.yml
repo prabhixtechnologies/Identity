@@ -114,6 +114,18 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  health:
+    # Spring Boot's mail indicator opens a connection to spring.mail.host on every health check.
+    # That host defaults to localhost, where nothing listens, so the aggregate /actuator/health
+    # returns 503 with an SMTP stack trace on a service that is otherwise entirely fine — which is
+    # what it did on first boot in production, and what the platform backend disabled this for.
+    #
+    # Turning it off does not hide a broken transport, because it was never reporting on the one in
+    # use: it dials the configured SMTP host whether or not mail goes out that way. Whether Identity
+    # can actually deliver a magic link is a property of the transport, and belongs in an indicator
+    # that exercises it rather than in one that opens a socket.
+    mail:
+      enabled: false
   endpoint:
     health:
       probes:
