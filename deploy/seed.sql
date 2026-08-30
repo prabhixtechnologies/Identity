@@ -33,9 +33,12 @@
 
 \set ON_ERROR_STOP on
 
+-- admin@ rather than owner@, and it must match Platform/deploy/seed.sql. This address has to receive
+-- mail: owner@ is not a mailbox at the domain's mail host, so the first magic link sent to it was
+-- rejected outright, which for a passwordless sign-in means locked out.
 \if :{?owner_email}
 \else
-  \set owner_email 'owner@prabhixtechnologies.com'
+  \set owner_email 'admin@prabhixtechnologies.com'
 \endif
 
 \if :{?owner_name}
