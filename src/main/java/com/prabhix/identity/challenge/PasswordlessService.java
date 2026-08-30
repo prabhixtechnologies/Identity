@@ -55,15 +55,28 @@ public class PasswordlessService {
         return GENERIC_ACK;
     }
 
+    /**
+     * Consumes a magic link and returns whose it was, issuing nothing.
+     *
+     * <p>Separate from {@link #verifyMagicLink} because the hosted login page needs the first half
+     * and not the second: a browser in the middle of an authorization code flow wants a session
+     * cookie, and the refresh token {@code SignInService.complete} also mints would be handed to
+     * nobody and revoked by nothing.
+     */
     @Transactional
-    public TokenResponse verifyMagicLink(String rawToken, DeviceContext device) {
+    public IdentityUser authenticateByMagicLink(String rawToken) {
         AuthChallenge challenge = challenges.consumeBySecret(rawToken, ChallengePurpose.MAGIC_LINK);
         IdentityUser user = credentials.requireActive(challenge.getUserId());
         credentials.resetLoginFailures(user);
         // A magic link proves control of the mailbox, which is exactly what email verification
         // proves, so a first sign-in by link should not then ask the user to confirm the address.
         credentials.markEmailVerified(user.getId());
-        return signIn.complete(user, device, List.of("link"));
+        return user;
+    }
+
+    @Transactional
+    public TokenResponse verifyMagicLink(String rawToken, DeviceContext device) {
+        return signIn.complete(authenticateByMagicLink(rawToken), device, List.of("link"));
     }
 
     @Transactional
@@ -77,13 +90,19 @@ public class PasswordlessService {
         return GENERIC_ACK;
     }
 
+    /** Consumes an emailed code and returns whose it was, issuing nothing. */
     @Transactional
-    public TokenResponse verifyOtp(String email, String code, DeviceContext device) {
+    public IdentityUser authenticateByOtp(String email, String code) {
         AuthChallenge challenge = challenges.consumeByCode(email, code, ChallengePurpose.EMAIL_OTP);
         IdentityUser user = credentials.requireActive(challenge.getUserId());
         credentials.resetLoginFailures(user);
         credentials.markEmailVerified(user.getId());
-        return signIn.complete(user, device, List.of("otp"));
+        return user;
+    }
+
+    @Transactional
+    public TokenResponse verifyOtp(String email, String code, DeviceContext device) {
+        return signIn.complete(authenticateByOtp(email, code), device, List.of("otp"));
     }
 
     @Transactional

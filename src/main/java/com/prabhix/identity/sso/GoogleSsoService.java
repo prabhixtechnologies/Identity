@@ -39,8 +39,29 @@ public class GoogleSsoService {
     private final IdentityProperties properties;
     private final RestClient restClient = RestClient.create();
 
+    /** Whether a client id is configured, which decides if the login page offers the button. */
+    public boolean enabled() {
+        String clientId = properties.sso().googleClientId();
+        return clientId != null && !clientId.isBlank();
+    }
+
+    /** The client id the browser needs to render Google's own button. Not a secret. */
+    public String clientId() {
+        return properties.sso().googleClientId();
+    }
+
     @Transactional
     public TokenResponse authenticate(String idToken, DeviceContext device) {
+        return signIn.complete(authenticate(idToken), device, List.of("google"));
+    }
+
+    /**
+     * Verifies a Google {@code id_token} and returns the matching user, issuing nothing.
+     *
+     * <p>Split out for the hosted login page, which needs a browser session rather than tokens.
+     */
+    @Transactional
+    public IdentityUser authenticate(String idToken) {
         String clientId = properties.sso().googleClientId();
         if (clientId == null || clientId.isBlank()) {
             throw ApiException.of(ErrorCode.FEATURE_DISABLED, "Google sign-in is not enabled");
@@ -69,7 +90,7 @@ public class GoogleSsoService {
         // Google has already told us the address is verified, so a user who arrives this way should
         // not be asked to prove it again.
         credentials.markEmailVerified(user.getId());
-        return signIn.complete(user, device, List.of("google"));
+        return user;
     }
 
     private IdentityUser linkOrCreate(String subject, String email, String name, JsonNode tokenInfo) {

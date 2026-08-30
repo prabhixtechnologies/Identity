@@ -74,14 +74,25 @@ public class PhoneAuthService {
         return new AckResponse("If that number has an account, a code is on its way.");
     }
 
+    /** Consumes an SMS code and returns whose it was, issuing nothing. */
     @Transactional
-    public TokenResponse verifyOtp(String phone, String code, DeviceContext device) {
+    public IdentityUser authenticateByOtp(String phone, String code) {
         String normalized = normalize(phone);
         AuthChallenge challenge = challenges.consumeByCode(
                 normalized, code, ChallengePurpose.SMS_OTP);
         IdentityUser user = credentials.requireActive(challenge.getUserId());
         credentials.resetLoginFailures(user);
-        return signIn.complete(user, device, List.of("sms"));
+        return user;
+    }
+
+    @Transactional
+    public TokenResponse verifyOtp(String phone, String code, DeviceContext device) {
+        return signIn.complete(authenticateByOtp(phone, code), device, List.of("sms"));
+    }
+
+    /** Whether this deployment can send an SMS at all, which decides if the page offers the option. */
+    public boolean enabled() {
+        return sms.enabled();
     }
 
     /**

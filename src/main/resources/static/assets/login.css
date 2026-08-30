@@ -5,10 +5,13 @@
     --bg: #0b0d12;
     --card: #14171f;
     --line: #262b36;
+    --field: #0e1117;
     --text: #e8eaf0;
     --muted: #9aa2b4;
     --accent: #4f7cff;
+    --accent-soft: rgba(79, 124, 255, 0.12);
     --danger: #ff6b6b;
+    --danger-soft: rgba(255, 107, 107, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -22,15 +25,16 @@ body {
     background: var(--bg);
     color: var(--text);
     font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
 
-.shell { width: 100%; max-width: 380px; }
+.shell { width: 100%; max-width: 390px; }
 
 .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 32px 28px;
+    border-radius: 16px;
+    padding: 34px 30px;
 }
 
 .brand {
@@ -39,7 +43,7 @@ body {
     display: grid;
     place-items: center;
     margin-bottom: 20px;
-    border-radius: 11px;
+    border-radius: 12px;
     background: var(--accent);
     color: #fff;
     font-weight: 700;
@@ -62,8 +66,8 @@ input {
     margin-bottom: 18px;
     padding: 11px 13px;
     border: 1px solid var(--line);
-    border-radius: 9px;
-    background: #0e1117;
+    border-radius: 10px;
+    background: var(--field);
     color: var(--text);
     font-size: 15px;
 }
@@ -74,31 +78,97 @@ input:focus {
     border-color: transparent;
 }
 
+/* A one-time code is read off a screen and typed a character at a time, so it gets the spacing that
+   makes a transposed digit visible. */
+.code-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 22px;
+    letter-spacing: 6px;
+    text-align: center;
+}
+
 button {
     width: 100%;
     padding: 12px;
     border: 0;
-    border-radius: 9px;
-    background: var(--accent);
-    color: #fff;
+    border-radius: 10px;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
 }
 
-button:hover { filter: brightness(1.08); }
+button.primary { background: var(--accent); color: #fff; }
+button.primary:hover { filter: brightness(1.08); }
+
+/* Visibly secondary, so the page has one obvious next action rather than three competing ones. */
+button.secondary {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-weight: 550;
+}
+
+button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.alternatives { display: grid; gap: 10px; }
+.inline { margin: 0; }
+
+/* The address, once given, so step two says who it is about. */
+.whoami {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0 0 20px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 14px;
+    word-break: break-all;
+}
+
+.whoami .change { flex: none; color: var(--accent); text-decoration: none; font-size: 13px; }
+.whoami .change:hover { text-decoration: underline; }
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+}
+
+.hint { margin: -8px 0 18px; color: var(--muted); font-size: 13px; }
+
+/* Separates "send me a code" from "here is the code", which are two steps in one panel. */
+.follow-on {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+}
+
+#google-button { display: flex; justify-content: center; min-height: 44px; }
 
 .alert {
     margin: 0 0 18px;
     padding: 10px 12px;
-    border-radius: 9px;
+    border-radius: 10px;
     font-size: 14px;
 }
 
-.alert.error { background: rgba(255, 107, 107, 0.12); color: var(--danger); }
-.alert.notice { background: rgba(79, 124, 255, 0.12); color: var(--accent); }
+.alert.error { background: var(--danger-soft); color: var(--danger); }
+.alert.notice { background: var(--accent-soft); color: var(--accent); }
 
-.help { margin: 18px 0 0; font-size: 14px; }
+.help { margin: 18px 0 0; font-size: 14px; color: var(--muted); }
 .help a { color: var(--accent); text-decoration: none; }
 .help a:hover { text-decoration: underline; }
 
@@ -115,8 +185,8 @@ button:hover { filter: brightness(1.08); }
         --bg: #f5f6f9;
         --card: #fff;
         --line: #dfe3ec;
+        --field: #fbfcfe;
         --text: #12151c;
         --muted: #5c6579;
     }
-    input { background: #fbfcfe; }
 }

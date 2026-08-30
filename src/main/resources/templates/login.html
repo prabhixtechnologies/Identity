@@ -4,38 +4,142 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="color-scheme" content="light dark">
     <title>Sign in · Prabhix</title>
     <link rel="stylesheet" th:href="@{/assets/login.css}">
 </head>
+<!--
+  Address first, then how to prove it.
+
+  Two steps rather than one field-per-method page, because a single form cannot share one email input
+  between a password post and two passwordless posts: an input belongs to exactly one form, and
+  putting three submit buttons on one form would post the typed password to the endpoint that only
+  wanted to email a link.
+
+  It also works with no JavaScript at all, which matters for a page that is the only way into every
+  product. The only script here is Google's, and its absence costs one button rather than the page.
+
+  Nothing on either step reveals whether an address has an account. Step two looks identical for a
+  stranger's address as for your own.
+-->
 <body>
 <main class="shell">
-    <div class="card">
+    <section class="card" aria-labelledby="heading">
         <div class="brand" aria-hidden="true">PA</div>
-        <h1>Sign in</h1>
+        <h1 id="heading">Sign in</h1>
         <p class="sub">One account for every Prabhix product.</p>
 
         <p class="alert error" th:if="${error}" th:text="${error}" role="alert"></p>
         <p class="alert notice" th:if="${notice}" th:text="${notice}" role="status"></p>
 
-        <form method="post" th:action="@{/login}" novalidate>
-            <label for="username">Email address</label>
-            <input id="username" name="username" type="email" autocomplete="username"
-                   required autofocus inputmode="email">
+        <!-- Step one: who are you. A GET, so it is bookmarkable and needs no CSRF token. -->
+        <form th:if="${stage == 'identify'}" method="get" th:action="@{/login}" novalidate>
+            <input type="hidden" name="method" value="choose">
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" autocomplete="username"
+                   required autofocus inputmode="email" spellcheck="false" th:value="${email}">
+            <button type="submit" class="primary">Continue</button>
 
-            <label for="password">Password</label>
-            <input id="password" name="password" type="password"
-                   autocomplete="current-password" required>
+            <div th:if="${googleClientId}">
+                <p class="divider"><span>or</span></p>
+                <div id="google-button"></div>
+            </div>
 
-            <button type="submit">Continue</button>
+            <p class="help" th:if="${phoneEnabled}">
+                <a th:href="@{/login(phone='')}">Use a phone number instead</a>
+            </p>
         </form>
 
-        <p class="help">
-            <!-- Absolute, to the console: password recovery is a product screen already, and a second
-                 copy here would be two flows to keep in step. -->
-            <a th:href="${forgotPasswordUrl}">Forgotten your password?</a>
-        </p>
-    </div>
+        <!-- Step two: how you would like to prove it. -->
+        <div th:if="${stage == 'choose'}">
+            <p class="whoami">
+                <span th:text="${email}">you@example.com</span>
+                <a th:href="@{/login}" class="change">Change</a>
+            </p>
+
+            <form method="post" th:action="@{/login}" novalidate>
+                <input type="hidden" name="username" th:value="${email}">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password"
+                       autocomplete="current-password" required autofocus>
+                <button type="submit" class="primary">Sign in</button>
+            </form>
+
+            <p class="divider"><span>or without a password</span></p>
+
+            <div class="alternatives">
+                <form method="post" th:action="@{/login/link}" class="inline">
+                    <input type="hidden" name="email" th:value="${email}">
+                    <button type="submit" class="secondary">Email me a sign-in link</button>
+                </form>
+                <form method="post" th:action="@{/login/code}" class="inline">
+                    <input type="hidden" name="email" th:value="${email}">
+                    <button type="submit" class="secondary">Email me a code</button>
+                </form>
+            </div>
+
+            <p class="help">
+                <a th:href="${forgotPasswordUrl}">Forgotten your password?</a>
+                <span th:if="${phoneEnabled}">
+                    · <a th:href="@{/login(phone='')}">Use a phone number</a>
+                </span>
+            </p>
+        </div>
+
+        <!-- An emailed code, for someone who cannot open a link where they are. -->
+        <div th:if="${stage == 'code'}">
+            <form method="post" th:action="@{/login/code/verify}" novalidate>
+                <input type="hidden" name="email" th:value="${email}">
+                <label for="code">Six-digit code</label>
+                <input id="code" name="code" type="text" required autofocus
+                       inputmode="numeric" autocomplete="one-time-code"
+                       pattern="[0-9]*" maxlength="8" class="code-input">
+                <p class="hint">Sent to <strong th:text="${email}">your address</strong>.</p>
+                <button type="submit" class="primary">Continue</button>
+            </form>
+            <p class="help">
+                <a th:href="@{/login(method='choose', email=${email})}">Use a password instead</a>
+            </p>
+        </div>
+
+        <!-- Phone, only where an SMS can actually be sent. -->
+        <div th:if="${stage == 'phone'}">
+            <form method="post" th:action="@{/login/phone}" novalidate>
+                <label for="phone">Phone number</label>
+                <input id="phone" name="phone" type="tel" required autofocus
+                       autocomplete="tel" placeholder="+91 98765 43210" th:value="${number}">
+                <p class="hint">In international form, starting with the country code.</p>
+                <button type="submit" class="secondary">Send me a code</button>
+            </form>
+
+            <form method="post" th:action="@{/login/phone/verify}" novalidate class="follow-on"
+                  th:if="${not #strings.isEmpty(number)}">
+                <input type="hidden" name="phone" th:value="${number}">
+                <label for="phone-code">Code from the message</label>
+                <input id="phone-code" name="code" type="text" required
+                       inputmode="numeric" autocomplete="one-time-code"
+                       pattern="[0-9]*" maxlength="8" class="code-input">
+                <button type="submit" class="primary">Continue</button>
+            </form>
+
+            <p class="help">
+                <a th:href="@{/login}">Use an email address instead</a>
+            </p>
+        </div>
+
+        <!-- Google hands its credential to this same-origin form, which carries a CSRF token.
+             Posting straight to us from Google's frame would need that check exempted. -->
+        <form th:if="${googleClientId}" id="google-form" method="post" th:action="@{/login/google}" hidden>
+            <input type="hidden" name="credential" id="google-credential">
+        </form>
+    </section>
+
     <p class="footprint">Prabhix Technologies</p>
 </main>
+
+<th:block th:if="${googleClientId}">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script th:src="@{/assets/login.js}" th:attr="data-client-id=${googleClientId}" defer></script>
+</th:block>
 </body>
 </html>

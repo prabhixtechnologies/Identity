@@ -25,7 +25,8 @@ public class LoginUiConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain loginUiChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain loginUiChain(HttpSecurity http,
+                                            LoginFailureHandler failureHandler) throws Exception {
         http
                 .securityMatcher("/login", "/login/**", "/oauth2/consent", "/assets/**", "/logout")
                 .authorizeHttpRequests(requests -> requests
@@ -36,7 +37,10 @@ public class LoginUiConfig {
                         .loginProcessingUrl("/login")
                         // Nothing sensible to do on success beyond returning to whatever asked for
                         // authentication, which is always an /authorize request in practice.
-                        .permitAll())
+                        .permitAll()
+                        // The page asks for the address and the password on separate steps, so the
+                        // default /login?error would discard the address along with the attempt.
+                        .failureHandler(failureHandler))
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?signedOut")
