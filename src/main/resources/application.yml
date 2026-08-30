@@ -302,24 +302,37 @@ prabhix:
     service-token: ${IDENTITY_SERVICE_TOKEN:}
 
 ---
-# ElastiCache Serverless for Valkey is always cluster mode and always TLS, so the host/port
-# settings above cannot reach it. Activate with SPRING_PROFILES_ACTIVE=prod,valkey.
+# ElastiCache Serverless for Valkey, which is TLS-only. Activate with
+# SPRING_PROFILES_ACTIVE=prod,valkey.
 #
-# This must point at the same cache as the platform backend, for the reason given on the redis
-# block above: the deny list is one keyspace that identity writes and every product reads.
+# This must point at the same cache as the platform backend, for the reason given on the redis block
+# above: the deny list is one keyspace that identity writes and every product reads.
+#
+# Configured as a single standalone endpoint, NOT as a cluster, which is the opposite of what the
+# endpoint's own `redis_mode:cluster` suggests. This block did configure a cluster, and it is why
+# identity's readiness was DOWN in production while the backend sharing the same cache was fine:
+#
+# ElastiCache Serverless answers CLUSTER SLOTS with two nodes for slots 0-16383, an upstream on 6379
+# and a replica on 6380, and nothing listens on 6380. A cluster-aware Lettuce client therefore builds
+# a topology containing a node it can never reach, and every attempt to use it fails with
+# `RedisConnectionException: Unable to connect to <host>/<unresolved>:6380`. Adaptive refresh made it
+# worse by rediscovering that node every 60 seconds.
+#
+# Standalone is safe because the endpoint is a proxy rather than a node — it reports `run_id:0` — and
+# serves every slot itself, so a client that never asks for the topology never learns about 6380. The
+# platform backend was moved to this arrangement after verifying it against the real endpoint; see
+# the same block in its application.yml for what was measured.
 spring:
   config:
     activate:
       on-profile: valkey
   data:
     redis:
-      cluster:
-        nodes: ${REDIS_CLUSTER_NODES}
-        max-redirects: 3
-      ssl:
-        enabled: true
-      lettuce:
-        cluster:
-          refresh:
-            adaptive: true
-            period: 60s
+      # rediss://, with two s, is what turns TLS on — the scheme carries it, so there is no separate
+      # ssl.enabled here. A redis:// URL is refused by the endpoint.
+      #
+      # REDIS_CLUSTER_NODES keeps its name despite this no longer being a cluster configuration: it
+      # holds exactly the host:port this URL needs, and it is what the compose files already set. No
+      # default, so a blank value fails startup loudly instead of quietly falling back to localhost
+      # and presenting as a working cache that happens to have no data.
+      url: rediss://${REDIS_CLUSTER_NODES}
