@@ -49,7 +49,7 @@ public class PasswordlessService {
             mailer.sendMagicLink(
                     user.get().getEmail(),
                     user.get().effectiveDisplayName(),
-                    consoleLink("/magic-link", raised.rawSecret()),
+                    hostedLink("/login/link", raised.rawSecret()),
                     challenges.expiryMinutes());
         }
         return GENERIC_ACK;
@@ -138,6 +138,23 @@ public class PasswordlessService {
      */
     private String consoleLink(String path, String rawToken) {
         return properties.urls().console() + path + "?token="
+                + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Builds a link back to this service's own hosted page.
+     *
+     * <p>A magic link has to land wherever the challenge it names can be found, and challenges are in
+     * this service's database. Pointing it at the console meant the console posting the token to
+     * {@code /api/v1/auth/magic-link/verify}, which the gateway routes by {@code AUTH_UPSTREAM} — so
+     * before that cutover the token was looked for in the platform's database and never found. The
+     * link was dead for exactly as long as the two halves disagreed.
+     *
+     * <p>Landing here also resumes the authorization request the person started, which a console page
+     * cannot do: the session cookie belongs to this origin.
+     */
+    private String hostedLink(String path, String rawToken) {
+        return properties.issuer() + path + "?token="
                 + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
     }
 }
