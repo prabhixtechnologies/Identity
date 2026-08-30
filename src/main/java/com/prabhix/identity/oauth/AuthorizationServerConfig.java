@@ -13,7 +13,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
@@ -21,11 +22,11 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
@@ -44,6 +45,12 @@ import java.util.List;
  * matcher is specific and it has to win. The login and consent pages come second, and need a session:
  * the authorization request is held there while the person signs in. The stateless API chain in
  * {@code SecurityConfig} comes last, since it matches everything left over.
+ *
+ * <p>As of Spring Security 7 the authorization server is part of Spring Security itself rather than a
+ * separate project, so the configurer and the defaults now come from
+ * {@code org.springframework.security.config.annotation.web} and not from a
+ * {@code ...oauth2.server.authorization.config} package of their own. The classes kept their names,
+ * so this reads the same as before; only the imports moved.
  */
 @Configuration
 public class AuthorizationServerConfig {
@@ -51,13 +58,30 @@ public class AuthorizationServerConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerChain(HttpSecurity http) throws Exception {
-        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+        // Spring Security 7 removed the static applyDefaultSecurity, so what it did is written out
+        // here. It was three things, and all three still matter:
+        //
+        //   1. scope this chain to the authorization server's own endpoints, so it does not swallow
+        //      requests belonging to the login chain or the API chain,
+        //   2. require an authenticated user on them,
+        //   3. exempt them from CSRF, because they are called by clients with a token or a client
+        //      secret rather than by a browser carrying a session cookie.
+        //
+        // Dropping the third silently breaks the token endpoint for every client, so the matcher is
+        // held in a local and used for both the matcher and the exemption rather than being built
+        // twice — two matchers that are meant to be identical are two things that can drift.
+        OAuth2AuthorizationServerConfigurer authorizationServer = new OAuth2AuthorizationServerConfigurer();
+        RequestMatcher endpoints = authorizationServer.getEndpointsMatcher();
 
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                // Turns on the OIDC half: the id_token, /userinfo, and RP-initiated logout. Dynamic
-                // client registration stays off — a client that can register itself can choose its own
-                // redirect URI, which is the whole attack.
-                .oidc(Customizer.withDefaults());
+        http
+                .securityMatcher(endpoints)
+                .with(authorizationServer, server -> server
+                        // Turns on the OIDC half: the id_token, /userinfo, and RP-initiated logout.
+                        // Dynamic client registration stays off — a client that can register itself
+                        // can choose its own redirect URI, which is the whole attack.
+                        .oidc(Customizer.withDefaults()))
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .csrf(csrf -> csrf.ignoringRequestMatchers(endpoints));
 
         http.exceptionHandling(handling -> handling
                 // Only for a browser. An API client that lands here should get a 401 rather than a

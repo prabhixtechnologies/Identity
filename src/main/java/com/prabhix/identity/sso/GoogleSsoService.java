@@ -1,6 +1,6 @@
 package com.prabhix.identity.sso;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;

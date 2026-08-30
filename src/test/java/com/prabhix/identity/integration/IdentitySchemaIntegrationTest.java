@@ -22,7 +22,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -59,8 +59,10 @@ class IdentitySchemaIntegrationTest {
 
     @Container
     @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("prabhix_identity_test");
+    // Not PostgreSQLContainer<?>: Testcontainers 2 moved this out of org.testcontainers.containers,
+    // where a deprecated generic copy still sits, and dropped the self-referential type parameter.
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("identity_test");
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {

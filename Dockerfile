@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1 — build the Spring Boot fat JAR with a cacheable dependency layer.
 # ---------------------------------------------------------------------------
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /build
 
 # Resolve dependencies first so code-only changes reuse this layer.
@@ -16,7 +16,7 @@ RUN mvn -B -DskipTests package
 # ---------------------------------------------------------------------------
 # Stage 2 — minimal JRE runtime, non-root, container-aware JVM flags.
 # ---------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 # curl is only used by HEALTHCHECK; kept out of the build stage.
 RUN apk add --no-cache curl \

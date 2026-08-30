@@ -4,14 +4,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -41,8 +41,10 @@ class OidcProviderIntegrationTest {
 
     @Container
     @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("prabhix_identity_oidc_test");
+    // Not PostgreSQLContainer<?>: Testcontainers 2 moved this out of org.testcontainers.containers,
+    // where a deprecated generic copy still sits, and dropped the self-referential type parameter.
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("identity_oidc_test");
 
     @DynamicPropertySource
     static void configuration(DynamicPropertyRegistry registry) {
@@ -106,7 +108,13 @@ class OidcProviderIntegrationTest {
                         .queryParam("code_challenge_method", "S256")
                         .accept(org.springframework.http.MediaType.TEXT_HTML))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
+                // "/login", not "**/login". Spring Framework 7 sends a relative Location header where
+                // 6 expanded it to an absolute URL, so the pattern that required a scheme and host in
+                // front no longer matches. Where the browser ends up is unchanged, and a relative
+                // redirect is the better answer anyway: it cannot be wrong about the public hostname,
+                // which behind a proxy is a thing the server has to be told rather than something it
+                // knows.
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test

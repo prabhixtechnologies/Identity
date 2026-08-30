@@ -13,28 +13,274 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: maven
 
+      # -Pintegration, which clears the excludedGroups that otherwise skips the @Tag("integration")
+      # tests. They were not running here, and they are the ones that start the context against a
+      # real Postgres and drive the OIDC endpoints end to end — so without them CI had no opinion on
+      # whether this service could issue a token, only on whether its units compiled and passed.
+      #
+      # Logged as well as printed so the next step can read it without running the suite again.
+      # pipefail matters here: without it the step's exit code would be tee's, not Maven's.
       - name: Verify
-        run: mvn -B verify
+        run: |
+          set -euo pipefail
+          mvn -B verify -Pintegration 2>&1 | tee build.log
+
+      # The pom hands Mockito's agent to the JVM at startup rather than letting it attach to a
+      # running one, which the JDK warns about now and will refuse. Checked rather than assumed
+      # because Mockito falls back to self-attaching and the suite still passes — so a green build is
+      # not evidence the configuration is intact. See the platform's workflow for the longer note.
+      - name: Mockito is not self-attaching
+        run: |
+          set -euo pipefail
+          fail=0
+
+          if grep -q 'Mockito is currently self-attaching' build.log; then
+            echo "::error::Mockito is self-attaching. The -javaagent in the surefire argLine is not reaching the test JVM."
+            fail=1
+          fi
+          if grep -q 'A Java agent has been loaded dynamically' build.log; then
+            echo "::error::An agent was loaded dynamically, which a future JDK disallows by default."
+            grep -m3 'loaded dynamically' build.log
+            fail=1
+          fi
+          # A log with no tests in it has no warnings in it either.
+          if ! grep -qE 'Tests run: [0-9]+' build.log; then
+            echo "::error::No test results in the output, so the absence of warnings proves nothing."
+            fail=1
+          fi
+
+          [ "$fail" -eq 0 ] || exit 1
+          grep -hoE 'Tests run: [0-9]+, Failures: [0-9]+, Errors: [0-9]+, Skipped: [0-9]+' build.log | tail -1
+          echo "The agent is loaded up front."
+
+  # The schema is one generated baseline (Platform's deploy/squash-baseline.py produced it). The
+  # Testcontainers tests cover the queries; this covers the file itself applying to nothing at all,
+  # which is the state every new environment starts in.
+  migrations:
+    name: Schema (empty database)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: schemacheck
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baseline applies to an empty database
+        run: |
+          set -euo pipefail
+          # --network host so the container can reach the service on localhost.
+          docker run --rm --network host \
+            -v "$PWD/src/main/resources/db/migration:/flyway/sql:ro" \
+            flyway/flyway:11-alpine \
+            -url=jdbc:postgresql://localhost:5432/schemacheck \
+            -user=postgres -password=ci \
+            -locations=filesystem:/flyway/sql \
+            -connectRetries=10 \
+            migrate
+
+      - name: Schema arrived
+        env:
+          PGPASSWORD: ci
+        run: |
+          set -euo pipefail
+          # A baseline truncated to nothing still "applies" cleanly. Floor, not equality: adding a
+          # table should not fail the build, losing the lot should.
+          tables=$(psql -h localhost -U postgres -d schemacheck -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+          if [ "$tables" -lt 8 ]; then
+            echo "FAIL: $tables tables, expected at least 8"
+            exit 1
+          fi
+          echo "tables $tables"
+          # Identity stores users by case-insensitive email. If citext were missing the column would
+          # fall back to text, and two casings of one address would become two accounts.
+          email_type=$(psql -h localhost -U postgres -d schemacheck -tAc \
+            "SELECT format_type(a.atttypid, a.atttypmod)
+               FROM pg_attribute a
+               JOIN pg_class c ON c.oid = a.attrelid
+              WHERE c.relname = 'users' AND a.attname = 'email'")
+          if [ "$email_type" != "citext" ]; then
+            echo "FAIL: users.email is $email_type, expected citext"
+            exit 1
+          fi
+          echo "users.email is citext"
+
+      # This baseline inserts nothing at all — no reference data, and the OAuth clients are written by
+      # RegisteredClientSeeder on every boot. So deploy/seed.sql is the only thing standing between an
+      # empty database and one that can issue a token, and it is worth more than the schema check.
+      #
+      # Twice, because it says it is safe twice. The failure it guards against is the address guard
+      # comparing citext to text, which resolves to the case-sensitive operator and inserts a second
+      # account for the same person without erroring.
+      - name: Seed applies twice without drift
+        env:
+          PGPASSWORD: ci
+        run: |
+          set -euo pipefail
+          psql() { command psql -h localhost -U postgres -d schemacheck "$@"; }
+
+          seed() {
+            psql -q -v ON_ERROR_STOP=1 \
+              -v owner_email=ci@prabhixtechnologies.com \
+              -v owner_password=ci-seed-password \
+              -v owner_name='CI Seed' \
+              -f deploy/seed.sql > /dev/null
+          }
+
+          seed; first=$(psql -tAc "SELECT count(*) FROM users")
+          seed; second=$(psql -tAc "SELECT count(*) FROM users")
+          echo "users after one run: $first, after two: $second"
+          if [ "$first" != "1" ] || [ "$second" != "1" ]; then
+            echo "FAIL: expected exactly one user after either run"
+            exit 1
+          fi
+
+      # Every condition CredentialService.authenticate actually checks, rather than a proxy for them.
+      # A seeded account that exists but cannot sign in is the failure this whole file exists to
+      # prevent, and it is invisible to a row count.
+      - name: Seeded owner passes every login check
+        env:
+          PGPASSWORD: ci
+        run: |
+          set -euo pipefail
+          psql() { command psql -h localhost -U postgres -d schemacheck "$@"; }
+
+          expect() {
+            actual=$(psql -tAc "$2")
+            if [ "$actual" != "$3" ]; then
+              echo "FAIL: $1 is '$actual', expected '$3'"
+              exit 1
+            fi
+            printf '%-38s %s\n' "$1" "$actual"
+          }
+
+          expect "not soft-deleted, active, unlocked" \
+            "SELECT deleted_at IS NULL AND status <> 'DISABLED' AND (locked_until IS NULL OR locked_until < now()) FROM users WHERE email = 'ci@prabhixtechnologies.com'" t
+          # crypt() against the stored hash is the same comparison BCryptPasswordEncoder makes.
+          expect "password verifies" \
+            "SELECT crypt('ci-seed-password', password_hash) = password_hash FROM users WHERE email = 'ci@prabhixtechnologies.com'" t
+          expect "a wrong password does not" \
+            "SELECT crypt('wrong', password_hash) = password_hash FROM users WHERE email = 'ci@prabhixtechnologies.com'" f
+          # A hash written at a lower cost still verifies, so nothing else would notice the seed
+          # drifting away from the encoder's configured strength.
+          expect "bcrypt cost is 12" \
+            "SELECT left(password_hash, 7) FROM users WHERE email = 'ci@prabhixtechnologies.com'" '$2a$12$'
+          # Deliberately false: platform staff authority is granted in the platform's database and
+          # nowhere else, so that a compromised identity service cannot promote itself over there.
+          # Setting it here would grant nothing and imply otherwise.
+          expect "platform_admin left false" \
+            "SELECT platform_admin FROM users WHERE email = 'ci@prabhixtechnologies.com'" f
+          # citext, stated as a test: a different casing must find the same account, not miss it.
+          expect "the address is case-insensitive" \
+            "SELECT count(*) FROM users WHERE email = 'CI@PrabhixTechnologies.com'" 1
+
+      # This service signs the token; the platform looks up its own users row by the uuid in `sub`.
+      # The two seeds therefore have to agree on the owner's id, they live in separate repositories,
+      # and no foreign key spans the two databases — so nothing can enforce it. This pins the value on
+      # this side and Platform's CI pins the same literal on that side, which makes changing it a
+      # deliberate two-repository act rather than an accident in one.
+      - name: Owner id matches the value the platform seeds
+        env:
+          PGPASSWORD: ci
+        run: |
+          set -euo pipefail
+          expected=00000000-0000-4000-8000-000000000002
+          actual=$(psql -h localhost -U postgres -d schemacheck -tAc \
+            "SELECT id FROM users WHERE email = 'ci@prabhixtechnologies.com'")
+          if [ "$actual" != "$expected" ]; then
+            echo "FAIL: deploy/seed.sql produced owner id $actual, but Platform/deploy/seed.sql"
+            echo "      defaults to $expected. Change both or neither: a mismatch lets sign-in"
+            echo "      succeed and then fails every API call with 'not provisioned on the platform'."
+            exit 1
+          fi
+          echo "owner id $actual, matching the platform"
+
+      # The guard against seeding the pair inconsistently, which is the mistake with the worst symptom
+      # and no error. Reseeding this address under a different id has to be refused, because the
+      # alternative is that it looks like it worked: the insert is guarded, so it skips, the script
+      # exits 0, and the id that was passed is silently not the id in the database.
+      #
+      # Tested by doing it, because a check written and never exercised is a check that might already
+      # be inverted.
+      - name: Seeding the same address under a different id is refused
+        env:
+          PGPASSWORD: ci
+        run: |
+          set -euo pipefail
+          before=$(psql -h localhost -U postgres -d schemacheck -tAc \
+            "SELECT id FROM users WHERE email = 'ci@prabhixtechnologies.com'")
+
+          if psql -h localhost -U postgres -d schemacheck -q \
+               -v ON_ERROR_STOP=1 \
+               -v owner_email=ci@prabhixtechnologies.com \
+               -v owner_password=ci-seed-password \
+               -v owner_name='CI Seed' \
+               -v owner_id=00000000-0000-4000-8000-0000000000ff \
+               -f deploy/seed.sql > /dev/null 2>&1; then
+            echo "FAIL: the seed accepted a different owner_id for an address it had already seeded."
+            echo "      It must refuse, or this database and the platform's can disagree about who"
+            echo "      the owner is while both scripts report success."
+            exit 1
+          fi
+
+          after=$(psql -h localhost -U postgres -d schemacheck -tAc \
+            "SELECT id FROM users WHERE email = 'ci@prabhixtechnologies.com'")
+          if [ "$before" != "$after" ]; then
+            echo "FAIL: the refused run still changed the id, from $before to $after"
+            exit 1
+          fi
+          echo "refused, and left the existing id alone"
 
   image:
     name: Docker image
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, migrations]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      # Mints the OIDC token AWS exchanges for temporary credentials below.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # ECR once AWS_CI_ROLE_ARN is set as a repository variable, Docker Hub until then. Setting it
+      # is the cutover and clearing it is the rollback, so the four repositories can move registries
+      # one at a time instead of in lockstep.
+      - name: Configure AWS credentials
+        if: vars.AWS_CI_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          # Same region as the EC2 instance that pulls these, so a deploy is not billed as
+          # inter-region transfer.
+          aws-region: ap-south-1
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        if: vars.AWS_CI_ROLE_ARN != ''
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Log in to Docker Hub
+        if: vars.AWS_CI_ROLE_ARN == ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -42,7 +288,16 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          # Taken from the ECR login rather than configured, so the account ID cannot drift from the
+          # role that was actually assumed.
+          registry='${{ steps.ecr.outputs.registry }}'
+          if [ -n "$registry" ]; then
+            echo "prefix=$registry/" >> "$GITHUB_OUTPUT"
+          else
+            echo "prefix=prabhixtechnologies/" >> "$GITHUB_OUTPUT"
+          fi
 
       # Tagged with the short SHA as well as latest, matching the platform, because deploy/deploy.sh
       # in that repository takes a TAG and pins every service to the same one. A deploy that could
@@ -54,7 +309,7 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            prabhixtechnologies/prabhix-identity:latest
-            prabhixtechnologies/prabhix-identity:${{ steps.meta.outputs.sha }}
+            ${{ steps.meta.outputs.prefix }}prabhix-identity:latest
+            ${{ steps.meta.outputs.prefix }}prabhix-identity:${{ steps.meta.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

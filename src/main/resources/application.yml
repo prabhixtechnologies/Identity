@@ -7,18 +7,44 @@ spring:
 
   jackson:
     default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
+    #
+    # Jackson 3 split the feature flags across several enums, and Spring binds each block below to a
+    # different one. A key under the wrong block is not ignored: binding fails, so the mapper cannot be
+    # built, so the application does not start. Which enum each belongs to is worth stating.
+    datatype:
+      datetime:
+        # DateTimeFeature, moved out of SerializationFeature. Left explicit even though false is now
+        # the Jackson default, because ISO-8601 strings rather than epoch numbers is a contract with
+        # every relying party, not a preference.
+        write-dates-as-timestamps: false
+    mapper:
+      # MapperFeature, and on by default in Jackson 3, which would reorder the keys of every response
+      # including the discovery document and the JWKS. Nothing should read those positionally, but a
+      # framework upgrade is not the moment to find out otherwise.
+      sort-properties-alphabetically: false
     deserialization:
       fail-on-unknown-properties: false
+
+  # Moved here from server.error.* in the Boot 4 upgrade. The old keys bind to a different enum, so
+  # Boot could not carry them across and ignored them in silence — no warning, no failure, just the
+  # defaults. They happen to default to never as well, so nothing leaked, but "the safe thing was the
+  # default" is luck rather than configuration and only the properties migrator revealed it.
+  #
+  # never on both, and it matters more here than anywhere: this service handles credentials, so an
+  # exception message can quote what was submitted, and a stack trace tells an attacker exactly which
+  # authentication path they reached.
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
 
   datasource:
     # Its own database, not its own schema and not a shared one. The five tables here are the only
     # writer of themselves, and a separate database is what makes "the platform cannot reach into
     # users" a fact about the credentials rather than a convention nobody enforces.
-    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/prabhix_identity}
-    username: ${IDENTITY_DB_USER:prabhix}
-    password: ${IDENTITY_DB_PASSWORD:prabhix}
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/identity}
+    username: ${IDENTITY_DB_USER:identity}
+    password: ${IDENTITY_DB_PASSWORD:identity}
     hikari:
       # Small on purpose. Sign-in traffic is a fraction of API traffic, and the pool competes with
       # the platform's for the same Postgres on a single-instance deployment.
@@ -75,9 +101,13 @@ server:
   # The issuer in a discovery document has to be the public https URL, not the container's own
   # http://identity:8081, so the proxy's X-Forwarded-* headers have to be trusted.
   forward-headers-strategy: framework
-  error:
-    include-message: never
-    include-stacktrace: never
+  tomcat:
+    threads:
+      # Identity does not run on virtual threads, unlike the platform backend and MobiStack, so
+      # Tomcat holds a real pool of platform threads here. The default ceiling of 200 reserves
+      # stack for concurrency a token endpoint will never see, and this process has the smallest
+      # memory limit of the four JVMs sharing the box.
+      max: ${TOMCAT_MAX_THREADS:50}
 
 management:
   endpoints:
@@ -89,6 +119,15 @@ management:
       probes:
         enabled: true
       show-details: never
+      group:
+        # Identity is the service that *writes* deny-list entries, so an unreachable cache here
+        # means a logout or a role change is accepted and silently dropped. Worth failing readiness
+        # over rather than discovering later that revocation never worked.
+        #
+        # The Dockerfile HEALTHCHECK reads this endpoint, which marks the container unhealthy rather
+        # than restarting it: plain Docker does not restart on health, only Swarm does.
+        readiness:
+          include: readinessState,redis
 
 springdoc:
   swagger-ui:
@@ -232,3 +271,26 @@ prabhix:
     # Shared secret a product presents to read user records from /internal. Blank disables the
     # endpoint, which is the right default for a deployment nobody has given one.
     service-token: ${IDENTITY_SERVICE_TOKEN:}
+
+---
+# ElastiCache Serverless for Valkey is always cluster mode and always TLS, so the host/port
+# settings above cannot reach it. Activate with SPRING_PROFILES_ACTIVE=prod,valkey.
+#
+# This must point at the same cache as the platform backend, for the reason given on the redis
+# block above: the deny list is one keyspace that identity writes and every product reads.
+spring:
+  config:
+    activate:
+      on-profile: valkey
+  data:
+    redis:
+      cluster:
+        nodes: ${REDIS_CLUSTER_NODES}
+        max-redirects: 3
+      ssl:
+        enabled: true
+      lettuce:
+        cluster:
+          refresh:
+            adaptive: true
+            period: 60s

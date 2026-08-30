@@ -7,7 +7,9 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.6</version>
+        <!-- Last 3.5.x; see the platform's pom for why the JDK moves a release before the framework
+             does. Spring Authorization Server's version is managed from here, so it follows. -->
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -18,20 +20,51 @@
     <description>Prabhix Identity — authentication and token issuance for every Prabhix product</description>
 
     <properties>
-        <!-- Matches the platform: production targets 21, and -Djava.version=17 builds on an older
-             local JDK because nothing here needs 21 to compile. -->
-        <java.version>21</java.version>
+        <!-- Matches the platform: 25 in production, and -Djava.version=17 builds on an older local
+             JDK because nothing here needs a newer language level to compile. -->
+        <java.version>25</java.version>
         <build.dir>${project.basedir}/target</build.dir>
         <jjwt.version>0.12.6</jjwt.version>
-        <springdoc.version>2.8.9</springdoc.version>
-        <!-- 1.20.x bundles a docker-java that Docker Engine 29 rejects with HTTP 400 on /info. -->
-        <testcontainers.version>1.21.4</testcontainers.version>
+        <!--
+          3.x is the line built against Boot 4. 2.8.x reads a WebMvcProperties that Boot 4 moved, so
+          SwaggerConfig cannot be introspected and the context refuses to start — not a compile error,
+          since springdoc is only on the classpath, so the integration tests are what catch it.
+        -->
+        <springdoc.version>3.1.0</springdoc.version>
+        <!--
+          Testcontainers is version-managed by the Boot parent from 4.x on, so the pin is gone and the
+          modules inherit it. Note that 2.x renamed every module to carry a testcontainers- prefix and
+          dropped the self-referential generics.
+        -->
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <!--
+              webmvc, not web. spring-boot-starter-web still resolves but is deprecated for removal: it
+              is the classic aggregate and pulls in HTTP clients and JSON support regardless of whether
+              they are wanted, which is the coupling the 4.x split exists to undo.
+            -->
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <!--
+          webmvc brings no JSON library of its own, so the mapper that writes every token response and
+          discovery document has to be asked for explicitly.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jackson</artifactId>
+        </dependency>
+        <!--
+          Nor does webmvc auto-configure an HTTP client any more, and RestClient.Builder is injected by
+          the SMS sender to reach the gateway. Without this the context cannot be built, so a missing
+          HTTP client presents as the whole identity provider failing to start rather than as phone
+          sign-in being unavailable.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -51,7 +84,12 @@
              subtle mistake is a full account takeover, and this one is OIDC-certified. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-authorization-server</artifactId>
+            <!--
+              Renamed to sit under the security family in Boot 4; the old id still resolves but is
+              deprecated. The artifact behind it now ships as part of Spring Security 7 rather than as
+              the separate Spring Authorization Server project.
+            -->
+            <artifactId>spring-boot-starter-security-oauth2-authorization-server</artifactId>
         </dependency>
         <!-- Server-rendered login and consent pages. The one login UI every product redirects to has
              to be served from this origin, so that the session cookie which makes single sign-on work
@@ -83,9 +121,14 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!--
+          The starter, not flyway-core alone: Boot 4 moved Flyway's auto-configuration out of the
+          monolithic autoconfigure jar into spring-boot-flyway, which only the starter brings. With
+          bare flyway-core the migrations silently stop running at startup.
+        -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -128,29 +171,57 @@
             <optional>true</optional>
         </dependency>
 
+        <!--
+          The per-technology test starters replace the single spring-boot-starter-test, which they all
+          bring transitively anyway. Not cosmetic: in Boot 4 the test auto-configuration ships beside
+          each technology, so @WithMockUser and the rest need spring-boot-starter-security-test on the
+          classpath to do anything at all, and the old arrangement left them quietly inert.
+        -->
+        <!--
+          Kept after the Boot 4 upgrade rather than removed with it. Boot ignores a configuration key
+          it no longer recognises without saying anything, so a renamed property does not fail, it just
+          silently reverts to the default — which is how server.error.include-stacktrace stopped being
+          configured here and nothing noticed. Test scope, so it costs production nothing and reports
+          in the build instead.
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <artifactId>spring-boot-properties-migrator</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!--
           Tests run against real Postgres, not H2. The schema uses citext and jsonb, and a
           substitute database would let a migration that cannot apply in production pass here.
+
+          testcontainers- prefixes because org.testcontainers:postgresql stops at 1.21.4 and does not
+          exist at 2.x. The version comes from the Boot parent so the modules match the Testcontainers
+          that Boot's own test support was built against; Boot sets the property but does not manage
+          these artifacts, hence the explicit version.
         -->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
@@ -187,11 +258,28 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- Sets the groupId:artifactId:type properties surefire uses to locate the agent jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-agent-paths</id>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludedGroups>integration</excludedGroups>
+                    <!-- Loads Mockito's agent at startup instead of letting it attach to a running
+                         JVM, which the JDK warns about now and will refuse later. See the platform's
+                         pom for why there is no @{argLine} prefix. -->
+                    <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
                 </configuration>
             </plugin>
         </plugins>
@@ -206,7 +294,9 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration combine.self="override">
+                        <!-- Merged, not overridden, so the Mockito agent configured above survives
+                             into this profile. The inner override is what clears excludedGroups. -->
+                        <configuration>
                             <excludedGroups combine.self="override"/>
                             <environmentVariables>
                                 <DOCKER_HOST>${testcontainers.docker.host}</DOCKER_HOST>

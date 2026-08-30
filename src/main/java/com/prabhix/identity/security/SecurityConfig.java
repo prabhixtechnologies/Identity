@@ -3,7 +3,7 @@ package com.prabhix.identity.security;
 import com.prabhix.identity.common.ApiError;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
