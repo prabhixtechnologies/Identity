@@ -10,12 +10,56 @@
 --
 -- Usage, from the EC2 host:
 --
---   docker compose exec -T postgres psql -U identity -d identity \
---     -v ON_ERROR_STOP=1 -f - < Identity/scripts/import-platform-users.sql
+--   psql "host=$RDS user=prabhix dbname=identity sslmode=require" \
+--     -v ON_ERROR_STOP=1 \
+--     -v platform_db=oneops \
+--     -v platform_user=prabhix \
+--     -v platform_password='<the platform database password>' \
+--     -f Identity/scripts/import-platform-users.sql
+--
+-- The connecting role needs rds_superuser, or CREATE EXTENSION on the next line is refused.
 --
 -- The foreign-data wrapper is what makes this one statement rather than a dump-and-load. It reads
 -- the platform database directly, so nothing is written to disk in between and there is no window in
 -- which a file full of password hashes exists.
+
+\set ON_ERROR_STOP on
+
+-- localhost, because the wrapper connects from inside the server rather than from wherever psql is
+-- running. On RDS both databases live on the same instance, so it dials itself and no security group
+-- is involved; naming the endpoint instead would require the instance to allow its own address in.
+-- Overridable for the case the two databases are ever on separate servers.
+\if :{?platform_host}
+\else
+  \set platform_host 'localhost'
+\endif
+
+\if :{?platform_port}
+\else
+  \set platform_port '5432'
+\endif
+
+\if :{?platform_db}
+\else
+  \set platform_db 'oneops'
+\endif
+
+-- No default for the credentials. A wrong host fails loudly; a guessed user would either fail with
+-- an authentication error that looks like a network problem, or succeed as the wrong role and import
+-- whatever that role can see.
+\if :{?platform_user}
+\else
+  DO $$ BEGIN
+    RAISE EXCEPTION 'platform_user is required: psql -v platform_user=... -v platform_password=...';
+  END $$;
+\endif
+
+\if :{?platform_password}
+\else
+  DO $$ BEGIN
+    RAISE EXCEPTION 'platform_password is required';
+  END $$;
+\endif
 
 BEGIN;
 
@@ -26,7 +70,7 @@ DROP SERVER IF EXISTS platform_source CASCADE;
 
 CREATE SERVER platform_source
     FOREIGN DATA WRAPPER postgres_fdw
-    OPTIONS (host 'localhost', port '5432', dbname :'platform_db');
+    OPTIONS (host :'platform_host', port :'platform_port', dbname :'platform_db');
 
 CREATE USER MAPPING FOR CURRENT_USER
     SERVER platform_source
