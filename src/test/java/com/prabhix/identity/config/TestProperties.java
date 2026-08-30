@@ -46,10 +46,27 @@ public final class TestProperties {
                 // No SMS provider, so the phone flows refuse. Any test that needs them stubs
                 // SmsSender directly rather than reaching a real one from a unit test.
                 new IdentityProperties.Sms("", "", "", ""),
+                mail(),
                 // No OAuth clients. Every test here exercises the direct sign-in path or key
                 // handling; the authorization code flow needs a booted server, not a unit test.
                 List.of(),
                 "test-service-token");
+    }
+
+    /**
+     * SMTP rather than SES, matching a machine with no {@code SES_REGION}, so that a test which does
+     * not care about mail cannot accidentally construct an SES client and reach out to AWS.
+     *
+     * @param from the sender address, which is what SES checks against its verified identities
+     */
+    public static IdentityProperties.Mail mail(String from, IdentityProperties.Ses ses) {
+        return new IdentityProperties.Mail(from, "Prabhix Technologies",
+                IdentityProperties.Mail.Transport.AUTO, ses);
+    }
+
+    public static IdentityProperties.Mail mail() {
+        return mail("security@prabhixtechnologies.com",
+                new IdentityProperties.Ses("", "", "", ""));
     }
 
     /** For the expiry test, which needs a token that is already past its expiration. */
@@ -66,6 +83,7 @@ public final class TestProperties {
                 base.urls(),
                 base.sso(),
                 base.sms(),
+                base.mail(),
                 base.clients(),
                 base.serviceToken());
     }

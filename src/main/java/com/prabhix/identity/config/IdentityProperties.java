@@ -24,8 +24,58 @@ public record IdentityProperties(
         Urls urls,
         Sso sso,
         @DefaultValue Sms sms,
+        @DefaultValue Mail mail,
         @DefaultValue List<Client> clients,
         String serviceToken) {
+
+    /**
+     * The four emails that gate account access: magic link, OTP, password reset, verification.
+     *
+     * @param transport which way they leave. {@code AUTO} resolves to SES when a region is
+     *     configured and SMTP otherwise, which is what makes local development reach Mailpit and
+     *     production reach SES without either one naming the other's transport. An enum rather than
+     *     a string so that a misspelling fails the context at startup instead of quietly selecting
+     *     the fallback — a typo here would present as sign-in mail that never arrives.
+     */
+    public record Mail(
+            @DefaultValue("security@prabhixtechnologies.com") String from,
+            @DefaultValue("Prabhix Technologies") String fromName,
+            @DefaultValue("AUTO") Transport transport,
+            @DefaultValue Ses ses) {
+
+        public enum Transport {
+            AUTO, SES, SMTP
+        }
+    }
+
+    /**
+     * Amazon SES, used through the API rather than its SMTP interface.
+     *
+     * <p>SMTP submission would need a long-lived access key baked into the environment, because SES
+     * SMTP credentials are an IAM secret run through a derivation. The API is reached with the
+     * instance role instead, so there is no static credential to leak or rotate — which is the whole
+     * reason the region is the only thing that normally has to be set.
+     *
+     * @param accessKey only for running outside AWS, where no role can be assumed. Left blank the
+     *     credentials come from the default provider chain, which on the production box is the
+     *     instance profile.
+     * @param configurationSet optional; where SES publishes bounce and complaint events
+     */
+    public record Ses(
+            @DefaultValue("") String region,
+            @DefaultValue("") String accessKey,
+            @DefaultValue("") String secretKey,
+            @DefaultValue("") String configurationSet) {
+
+        public boolean configured() {
+            return region != null && !region.isBlank();
+        }
+
+        public boolean hasStaticCredentials() {
+            return accessKey != null && !accessKey.isBlank()
+                    && secretKey != null && !secretKey.isBlank();
+        }
+    }
 
     /**
      * Outbound SMS, for phone OTP sign-in.

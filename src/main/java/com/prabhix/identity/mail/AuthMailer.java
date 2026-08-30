@@ -2,11 +2,9 @@ package com.prabhix.identity.mail;
 
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
+import com.prabhix.identity.config.IdentityProperties;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
@@ -15,11 +13,11 @@ import java.nio.charset.StandardCharsets;
 /**
  * Sends the four emails that gate account access: magic link, OTP, password reset, email verification.
  *
- * <p>Sent from here over SMTP rather than handed to the platform's mail subsystem. Calling the
- * platform would make identity depend on a product that is meant to sit on top of it, and identity
- * has to work before any product does. SMTP submission is the dependency instead — the self-hosted
- * mail server and SES both speak it — and these four messages are short enough that a template
- * engine would cost more than it saves.
+ * <p>Sent from here rather than handed to the platform's mail subsystem. Calling the platform would
+ * make identity depend on a product that is meant to sit on top of it, and identity has to work
+ * before any product does. {@link AuthMailTransport} is the dependency instead — SES in production,
+ * SMTP in development — and these four messages are short enough that a template engine would cost
+ * more than it saves.
  *
  * <p><b>Failures are thrown, never swallowed.</b> The platform once reported success for mail it had
  * only written to a log, and marked it {@code SENT}; a magic link that is silently dropped is the
@@ -30,16 +28,14 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class AuthMailer {
 
-    private final JavaMailSender sender;
+    private final AuthMailTransport transport;
     private final String fromAddress;
     private final String fromName;
 
-    public AuthMailer(JavaMailSender sender,
-                      @Value("${prabhix.identity.mail.from:security@prabhixtechnologies.com}") String fromAddress,
-                      @Value("${prabhix.identity.mail.from-name:Prabhix Technologies}") String fromName) {
-        this.sender = sender;
-        this.fromAddress = fromAddress;
-        this.fromName = fromName;
+    public AuthMailer(AuthMailTransport transport, IdentityProperties properties) {
+        this.transport = transport;
+        this.fromAddress = properties.mail().from();
+        this.fromName = properties.mail().fromName();
     }
 
     public void sendMagicLink(String to, String name, String link, long expiryMinutes) {
@@ -80,19 +76,19 @@ public class AuthMailer {
 
     private void send(String to, String subject, String html) {
         try {
-            MimeMessage message = sender.createMimeMessage();
+            MimeMessage message = transport.createMessage();
             MimeMessageHelper helper =
                     new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
             helper.setFrom(fromAddress, fromName);
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(html, true);
-            sender.send(message);
-        } catch (MailException | jakarta.mail.MessagingException
+            transport.send(message);
+        } catch (AuthMailUndeliverable | jakarta.mail.MessagingException
                  | java.io.UnsupportedEncodingException ex) {
             // The address is not logged. This runs for addresses that may not have an account, and
             // a log line proving one exists is the enumeration leak the generic response prevents.
-            log.error("Could not send the {} email", subject, ex);
+            log.error("Could not send the {} email over {}", subject, transport.id(), ex);
             throw ApiException.of(ErrorCode.DEPENDENCY_UNAVAILABLE,
                     "We could not send that email just now. Please try again in a moment.");
         }

@@ -122,8 +122,9 @@ management:
     #
     # Turning it off does not hide a broken transport, because it was never reporting on the one in
     # use: it dials the configured SMTP host whether or not mail goes out that way. Whether Identity
-    # can actually deliver a magic link is a property of the transport, and belongs in an indicator
-    # that exercises it rather than in one that opens a socket.
+    # can actually deliver a magic link is a property of the transport, and AuthMailHealthIndicator
+    # now answers it by asking the transport in use — on SES, whether credentials resolve, whether
+    # the account may send, and whether the from-address is a verified identity.
     mail:
       enabled: false
   endpoint:
@@ -279,6 +280,22 @@ prabhix:
     mail:
       from: ${IDENTITY_MAIL_FROM:security@prabhixtechnologies.com}
       from-name: ${IDENTITY_MAIL_FROM_NAME:Prabhix Technologies}
+      # AUTO picks SES when a region is set and SMTP when it is not, which is what makes a laptop
+      # reach Mailpit and the production box reach SES without either naming the other's transport.
+      # Override with SES or SMTP to be explicit; anything else fails the context at startup rather
+      # than falling back, because a fallback here is a service that starts cleanly, sends nothing,
+      # and shows it only as users who cannot sign in.
+      transport: ${IDENTITY_MAIL_TRANSPORT:AUTO}
+      ses:
+        # Blank on purpose, unlike the platform backend, which defaults this to ap-south-1. A default
+        # region would make AUTO select SES everywhere including local development, where there are
+        # no credentials, and sign-in mail would stop working on every laptop.
+        region: ${SES_REGION:}
+        # Only for running outside AWS. Left blank the credentials come from the default provider
+        # chain, which on the production box is the instance profile — no static key to leak.
+        access-key: ${SES_ACCESS_KEY:}
+        secret-key: ${SES_SECRET_KEY:}
+        configuration-set: ${SES_CONFIGURATION_SET:}
 
     # Shared secret a product presents to read user records from /internal. Blank disables the
     # endpoint, which is the right default for a deployment nobody has given one.

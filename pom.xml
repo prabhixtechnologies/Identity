@@ -25,6 +25,9 @@
         <java.version>25</java.version>
         <build.dir>${project.basedir}/target</build.dir>
         <jjwt.version>0.12.6</jjwt.version>
+        <!-- Same version the platform backend sends SES mail with, so that both services talk to SES
+             through identical client behaviour. -->
+        <awssdk.version>2.29.52</awssdk.version>
         <!--
           3.x is the line built against Boot 4. 2.8.x reads a WebMvcProperties that Boot 4 moved, so
           SwaggerConfig cannot be introspected and the context refuses to start — not a compile error,
@@ -108,12 +111,25 @@
         </dependency>
         <!--
           Auth mail is sent from here rather than handed to the platform, which would make identity
-          depend on a product it is meant to sit underneath. SMTP submission is the dependency
-          instead, and the platform's mail server or SES both speak it.
+          depend on a product it is meant to sit underneath.
+
+          Still needed with SES as the production transport: this brings jakarta.mail, which builds
+          the MIME message that SES is handed raw, and JavaMailSender, which is the SMTP transport
+          used in development.
         -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!--
+          SES through its API rather than its SMTP interface, so that the only credential involved is
+          the instance role. SMTP submission would need a static access key in the environment,
+          because SES SMTP credentials are an IAM secret put through a derivation.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sesv2</artifactId>
+            <version>${awssdk.version}</version>
         </dependency>
 
         <dependency>
