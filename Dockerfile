@@ -1,9 +1,14 @@
 # syntax=docker/dockerfile:1
 
+# Base images come from AWS's public gallery rather than Docker Hub. These are the same
+# Docker Official Images, mirrored by AWS, and the move takes Docker Hub's anonymous pull
+# limit off the build path: a rate-limited base image fails the build for a reason that has
+# nothing to do with the change being built.
+
 # ---------------------------------------------------------------------------
 # Stage 1 — build the Spring Boot fat JAR with a cacheable dependency layer.
 # ---------------------------------------------------------------------------
-FROM maven:3.9-eclipse-temurin-25 AS build
+FROM public.ecr.aws/docker/library/maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /build
 
 # Resolve dependencies first so code-only changes reuse this layer.
@@ -16,7 +21,7 @@ RUN mvn -B -DskipTests package
 # ---------------------------------------------------------------------------
 # Stage 2 — minimal JRE runtime, non-root, container-aware JVM flags.
 # ---------------------------------------------------------------------------
-FROM eclipse-temurin:25-jre-alpine AS runtime
+FROM public.ecr.aws/docker/library/eclipse-temurin:25-jre-alpine AS runtime
 
 # curl is only used by HEALTHCHECK; kept out of the build stage.
 RUN apk add --no-cache curl \
