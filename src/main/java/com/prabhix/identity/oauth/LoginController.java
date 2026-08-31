@@ -4,6 +4,7 @@ import com.prabhix.identity.challenge.PasswordlessService;
 import com.prabhix.identity.challenge.PhoneAuthService;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.provisioning.SignupService;
 import com.prabhix.identity.sso.GoogleSsoService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,6 +51,7 @@ public class LoginController {
     private final PhoneAuthService phones;
     private final GoogleSsoService google;
     private final HostedSignIn hostedSignIn;
+    private final SignupService signup;
 
     @GetMapping("/login")
     public String login(@RequestParam(required = false) String error,
@@ -94,6 +96,9 @@ public class LoginController {
         model.addAttribute("googleClientId", google.enabled() ? google.clientId() : null);
         model.addAttribute("phoneEnabled", phones.enabled());
         model.addAttribute("forgotPasswordUrl", properties.urls().console() + "/forgot-password");
+        // Offered only where it would work. Without a platform to create the workspace in, the link
+        // would lead to a page that says signup is unavailable, which is a worse way to find out.
+        model.addAttribute("signupAvailable", signup.available());
         return "login";
     }
 

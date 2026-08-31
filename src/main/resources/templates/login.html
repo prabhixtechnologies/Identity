@@ -50,6 +50,12 @@
             </p>
         </form>
 
+        <!-- Outside the form above, because it is a link and not a second submit button: inside, a
+             browser that submits on Enter would still post the address to /login?method=choose. -->
+        <p class="help" th:if="${stage == 'identify' and signupAvailable}">
+            New to Prabhix? <a th:href="@{/signup}">Create an account</a>
+        </p>
+
         <!-- Step two: how you would like to prove it. -->
         <div th:if="${stage == 'choose'}">
             <p class="whoami">

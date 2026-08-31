@@ -24,7 +24,6 @@ import org.springframework.security.oauth2.server.authorization.client.JdbcRegis
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -87,7 +86,7 @@ public class AuthorizationServerConfig {
                 // Only for a browser. An API client that lands here should get a 401 rather than a
                 // redirect to a page it cannot render.
                 .defaultAuthenticationEntryPointFor(
-                        new LoginUrlAuthenticationEntryPoint("/login"),
+                        new SignInEntryPoint("/login"),
                         new MediaTypeRequestMatcher(org.springframework.http.MediaType.TEXT_HTML)));
 
         return http.build();
