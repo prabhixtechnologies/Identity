@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,6 +93,21 @@ public class IdentityTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodin
     }
 
     /**
+     * An {@code ArrayList}, and it has to be one.
+     *
+     * <p>Token claims are stored in {@code oauth2_authorization.token_metadata} as JSON with the type
+     * of every value written alongside it, and read back through a {@code PolymorphicTypeValidator}
+     * that allows a fixed set of concrete classes. {@code List.of} is not among them: it returns
+     * {@code ImmutableCollections$List12}, so the row serializes cleanly and then cannot be
+     * deserialized. The failure surfaces nowhere near here, as {@code invalid_request} from whichever
+     * endpoint next reads that authorization — RP-initiated logout, introspection, revocation, or the
+     * refresh-token grant — none of which look like a claim being the wrong kind of list.
+     */
+    private static List<String> storable(String value) {
+        return new ArrayList<>(List.of(value));
+    }
+
+    /**
      * Reads the factor Spring Security stamped on the authentication at sign-in.
      *
      * <p>{@code SignInAuthorities} records it for every method the hosted page offers, so this is the
@@ -105,7 +121,7 @@ public class IdentityTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodin
                 .map(AMR_BY_FACTOR::get)
                 .filter(Objects::nonNull)
                 .findFirst()
-                .map(List::of);
+                .map(IdentityTokenCustomizer::storable);
     }
 
     /**
