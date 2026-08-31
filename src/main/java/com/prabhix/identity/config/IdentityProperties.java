@@ -26,7 +26,29 @@ public record IdentityProperties(
         @DefaultValue Sms sms,
         @DefaultValue Mail mail,
         @DefaultValue List<Client> clients,
+        @DefaultValue Platform platform,
         String serviceToken) {
+
+    /**
+     * The product that owns organizations, for the tenant half of signing up.
+     *
+     * <p>The one outbound call this service makes to a product of ours, and it exists because signup
+     * creates two things in two databases: an account here, and an organization there. Presented with
+     * {@link IdentityProperties#serviceToken()} — the same secret the platform presents coming the
+     * other way, because it is one trust relationship and a second secret would be a second thing to
+     * forget to rotate.
+     *
+     * @param internalBaseUrl reached across the container network rather than through the public
+     *     hostname. Going out through Caddy would be a round trip through the internet to arrive back
+     *     on this host, and the edge answers {@code /internal} with a 404 precisely so that nobody
+     *     else can make this call.
+     *     <p>{@code prabhix-backend} and not {@code backend}: MobiStack shares this network and also
+     *     has a service called {@code backend}, and Docker's DNS returns both addresses for that name
+     *     with no way to opt out. Half of all signups would provision against a different product.
+     */
+    public record Platform(
+            @DefaultValue("http://prabhix-backend:8080") String internalBaseUrl) {
+    }
 
     /**
      * The four emails that gate account access: magic link, OTP, password reset, verification.

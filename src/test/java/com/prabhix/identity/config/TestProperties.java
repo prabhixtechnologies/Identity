@@ -50,6 +50,11 @@ public final class TestProperties {
                 // No OAuth clients. Every test here exercises the direct sign-in path or key
                 // handling; the authorization code flow needs a booted server, not a unit test.
                 List.of(),
+                // A URL no test may reach. Signup provisioning is exercised by stubbing
+                // PlatformProvisioning, so a test that actually opened a socket here would be a test
+                // that had escaped its own boundary — and the hostname does not resolve, so it fails
+                // rather than finding something.
+                new IdentityProperties.Platform("http://platform.invalid:8080"),
                 "test-service-token");
     }
 
@@ -85,6 +90,7 @@ public final class TestProperties {
                 base.sms(),
                 base.mail(),
                 base.clients(),
+                base.platform(),
                 base.serviceToken());
     }
 }

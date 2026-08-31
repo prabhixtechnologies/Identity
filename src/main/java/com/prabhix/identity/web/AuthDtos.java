@@ -13,10 +13,18 @@ public final class AuthDtos {
     private AuthDtos() {
     }
 
+    /**
+     * @param organizationName the workspace to create alongside the account, in the platform. Optional,
+     *     and blank means an account on its own — correct for someone accepting an invitation to a
+     *     workspace that already exists, and not for anybody else. Same field name and limit as the
+     *     platform's register request, because a client should not be able to tell which service
+     *     answered.
+     */
     public record RegisterRequest(
             @NotBlank @Email String email,
             @NotBlank @Size(min = 10, max = 128) String password,
             @NotBlank @Size(max = 160) String fullName,
+            @Size(max = 200) String organizationName,
             String deviceId,
             String deviceName,
             String deviceType) {

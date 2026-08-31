@@ -28,9 +28,13 @@ public class LoginUiConfig {
     public SecurityFilterChain loginUiChain(HttpSecurity http,
                                             LoginFailureHandler failureHandler) throws Exception {
         http
-                .securityMatcher("/login", "/login/**", "/oauth2/consent", "/assets/**", "/logout")
+                // /signup belongs on this chain and not the API one: it is a document with a form, so
+                // it needs a session to hold the pending authorization request and a CSRF token in the
+                // form, and it needs the CSP below or the gateway's floor stops it submitting at all.
+                .securityMatcher("/login", "/login/**", "/signup", "/oauth2/consent", "/assets/**",
+                        "/logout")
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/login", "/login/**", "/assets/**").permitAll()
+                        .requestMatchers("/login", "/login/**", "/signup", "/assets/**").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")

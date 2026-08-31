@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="color-scheme" content="light dark">
+    <title>Create your account · Prabhix</title>
+    <link rel="stylesheet" th:href="@{/assets/login.css}">
+</head>
+<!--
+  One step, unlike signing in.
+
+  Signing in is two steps because the second depends on the first: which methods to offer depends on
+  the address. Nothing here depends on anything, and splitting it would only add a page to abandon.
+
+  Four fields and no more. Every one of them is needed to end up with a usable account: a name for the
+  membership, an address to sign in with, a password, and something to call the workspace. Anything
+  else can be asked for later by a product that actually needs it.
+
+  Shares the login page's stylesheet, because it is the same surface to whoever is looking at it and a
+  second stylesheet is a second thing to forget to change.
+-->
+<body>
+<main class="shell">
+    <section class="card" aria-labelledby="heading">
+        <div class="brand" aria-hidden="true">PA</div>
+        <h1 id="heading">Create your account</h1>
+        <p class="sub">One account for every Prabhix product.</p>
+
+        <p class="alert error" th:if="${error}" th:text="${error}" role="alert"></p>
+
+        <!-- Says so rather than accepting a password it would then have to throw away. -->
+        <p class="alert notice" th:unless="${available}" role="status">
+            Creating an account is not available on this deployment. Ask whoever administers it for an
+            invitation.
+        </p>
+
+        <form th:if="${available}" method="post" th:action="@{/signup}" novalidate>
+            <label for="name">Your name</label>
+            <input id="name" name="name" type="text" autocomplete="name"
+                   required autofocus maxlength="160" th:value="${name}">
+
+            <label for="organization">Workspace name</label>
+            <input id="organization" name="organization" type="text" autocomplete="organization"
+                   required maxlength="200" th:value="${organization}">
+            <p class="hint">Your company or team. You can rename it later.</p>
+
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" autocomplete="username"
+                   required inputmode="email" spellcheck="false" th:value="${email}">
+
+            <!-- new-password, so a manager offers to generate one rather than filling in an old one. -->
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="new-password" required minlength="10">
+            <p class="hint">At least 10 characters.</p>
+
+            <button type="submit" class="primary">Create account</button>
+        </form>
+
+        <p class="help">
+            Already have an account? <a th:href="@{/login}">Sign in</a>
+        </p>
+    </section>
+
+    <p class="footprint">Prabhix Technologies</p>
+</main>
+</body>
+</html>

@@ -299,7 +299,21 @@ prabhix:
 
     # Shared secret a product presents to read user records from /internal. Blank disables the
     # endpoint, which is the right default for a deployment nobody has given one.
+    #
+    # The same secret authenticates this service calling the platform's /internal in the other
+    # direction. One secret for one trust relationship: a second would be a second to rotate, and the
+    # pair only ever fails together anyway.
     service-token: ${IDENTITY_SERVICE_TOKEN:}
+
+    platform:
+      # Across the container network, not through the public hostname. Caddy answers /internal with a
+      # 404 at the edge precisely so nobody outside can make this call, so going out through it would
+      # get one too.
+      #
+      # prabhix-backend, not backend: MobiStack shares this network and also has a service called
+      # `backend`, so that name resolves to two unrelated applications and Docker offers no way to opt
+      # out. Half of all signups would create their workspace in the wrong product.
+      internal-base-url: ${PLATFORM_INTERNAL_URL:http://prabhix-backend:8080}
 
 ---
 # ElastiCache Serverless for Valkey, which is TLS-only. Activate with

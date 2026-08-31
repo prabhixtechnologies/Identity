@@ -27,6 +27,7 @@ import com.prabhix.identity.web.AuthDtos.PhoneRequest;
 import com.prabhix.identity.web.AuthDtos.PhoneVerifyConfirmRequest;
 import com.prabhix.identity.web.AuthDtos.RefreshRequest;
 import com.prabhix.identity.web.AuthDtos.RegisterRequest;
+import com.prabhix.identity.provisioning.SignupService;
 import com.prabhix.identity.web.AuthDtos.SessionListResponse;
 import com.prabhix.identity.web.AuthDtos.SessionView;
 import com.prabhix.identity.web.AuthDtos.TokenResponse;
@@ -68,15 +69,30 @@ public class AuthController {
     private final PhoneAuthService phone;
     private final EmailVerificationService emailVerification;
     private final GoogleSsoService googleSso;
+    private final SignupService signup;
 
+    /**
+     * Signs somebody up, with the workspace that makes the account worth having.
+     *
+     * <p>{@code organizationName} is optional and its absence means something specific: an account and
+     * no organization, which is right for someone joining an existing workspace by invitation and
+     * wrong for anybody arriving on their own. This service still does not know what an organization
+     * is — it asks the platform, which owns them — but it does have to be the one to ask, because
+     * before this the two services disagreed about what {@code /auth/register} means: the platform's
+     * created a workspace from this field and this one ignored it. Whichever of them answered the
+     * request decided whether a new customer got a usable account, and that is not a thing to leave
+     * to a routing variable.
+     */
     @PostMapping("/register")
     public TokenResponse register(@Valid @RequestBody RegisterRequest request,
                                   HttpServletRequest httpRequest,
                                   HttpServletResponse httpResponse) {
-        // No organizationName, unlike the platform's register: creating an organization is a platform
-        // action, and this service does not know what an organization is. The console calls
-        // POST /organizations with the token it gets back.
-        IdentityUser user = credentials.create(request.email(), request.password(), request.fullName());
+        String organizationName = request.organizationName();
+        IdentityUser user = organizationName == null || organizationName.isBlank()
+                ? credentials.create(request.email(), request.password(), request.fullName())
+                : signup.signUp(request.email(), request.password(), request.fullName(),
+                        organizationName.trim());
+
         TokenResponse response = signIn.complete(user, device(request.deviceId(), request.deviceName(),
                 request.deviceType(), httpRequest), List.of("pwd"));
         cookies.issue(httpResponse, response.sessionId());
