@@ -67,6 +67,13 @@ public class SecurityConfig {
                         // The whole point of publishing keys is that anyone can fetch them.
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // The container's error dispatch, which is a second pass through these
+                        // filters with the URI rewritten to /error. Authenticated, it answered every
+                        // failure in the service with "UNAUTHENTICATED" and a path of /error: a 404
+                        // on a mistyped URL, a CSRF rejection on the login page and a 500 in a
+                        // controller were indistinguishable from each other and from an expired
+                        // token, which is a long way to look for a bug that reports itself wrongly.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Guarded by a shared service token inside the controller, not by a bearer
                         // token, because the caller is a product rather than a person.

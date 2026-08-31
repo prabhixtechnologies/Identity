@@ -49,7 +49,29 @@ public class LoginUiConfig {
                 // Form posts are cookie-authenticated, so this chain is exactly the CSRF surface the
                 // API chain is not. Left enabled, with the token rendered into the form.
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                // Sent by this service because it is this service that serves the document.
+                //
+                // The gateway applies a floor of `default-src 'none'; form-action 'none'` to every
+                // response on this hostname that does not carry a policy of its own, which is right
+                // for an API and ruinous for a login page: unstyled, scriptless, and — because of
+                // form-action — unable to submit the form at all. It is set only when absent, so
+                // sending one here is what replaces it.
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(String.join("; ",
+                                "default-src 'none'",
+                                "style-src 'self'",
+                                // accounts.google.com for the sign-in button, which is absent from
+                                // the page unless a client id is configured. Naming it here costs
+                                // nothing when it is not.
+                                "script-src 'self' https://accounts.google.com",
+                                "frame-src https://accounts.google.com",
+                                "connect-src https://accounts.google.com",
+                                "img-src 'self' data:",
+                                // 'self' and not 'none': every method on this page posts back here.
+                                "form-action 'self'",
+                                "base-uri 'none'",
+                                "frame-ancestors 'none'"))));
 
         return http.build();
     }
