@@ -5,7 +5,6 @@ import com.prabhix.identity.user.IdentityUser;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,7 +16,6 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Signs a browser in once some method has proved who it is, then resumes whatever asked.
@@ -55,13 +53,19 @@ public class HostedSignIn {
         success.setDefaultTargetUrl(properties.urls().console());
     }
 
+    /**
+     * @param factor which proof was just given, as a {@code FactorGrantedAuthority} constant. It ends
+     *     up as the ID token's {@code auth_time}, so it is required rather than defaulted: a wrong
+     *     factor is a false statement to every product that reads the claim.
+     */
     public void completeAndRedirect(IdentityUser user,
+                                   String factor,
                                    HttpServletRequest request,
                                    HttpServletResponse response) throws IOException, ServletException {
         UsernamePasswordAuthenticationToken authentication = UsernamePasswordAuthenticationToken.authenticated(
                 user.getId().toString(),
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                SignInAuthorities.forFactor(factor));
         authentication.setDetails(user.getEmail());
 
         sessionStrategy.onAuthentication(authentication, request, response);

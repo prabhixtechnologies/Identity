@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -115,7 +116,8 @@ public class LoginController {
                            HttpServletRequest request,
                            HttpServletResponse response) throws IOException, ServletException {
         try {
-            hostedSignIn.completeAndRedirect(passwordless.authenticateByMagicLink(token), request, response);
+            hostedSignIn.completeAndRedirect(passwordless.authenticateByMagicLink(token),
+                    FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
             log.debug("Magic link rejected: {}", ex.getMessage());
@@ -136,7 +138,8 @@ public class LoginController {
                              HttpServletRequest request,
                              HttpServletResponse response) throws IOException, ServletException {
         try {
-            hostedSignIn.completeAndRedirect(passwordless.authenticateByOtp(email, code), request, response);
+            hostedSignIn.completeAndRedirect(passwordless.authenticateByOtp(email, code),
+                    FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
             log.debug("Emailed code rejected: {}", ex.getMessage());
@@ -164,7 +167,8 @@ public class LoginController {
                                   HttpServletRequest request,
                                   HttpServletResponse response) throws IOException, ServletException {
         try {
-            hostedSignIn.completeAndRedirect(phones.authenticateByOtp(phone, code), request, response);
+            hostedSignIn.completeAndRedirect(phones.authenticateByOtp(phone, code),
+                    FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
             log.debug("SMS code rejected: {}", ex.getMessage());
@@ -185,7 +189,10 @@ public class LoginController {
                          HttpServletRequest request,
                          HttpServletResponse response) throws IOException, ServletException {
         try {
-            hostedSignIn.completeAndRedirect(google.authenticate(credential), request, response);
+            // Google proved this with its own authorization code flow, so that is the factor to
+            // record — not OTT, which would claim we mailed them something.
+            hostedSignIn.completeAndRedirect(google.authenticate(credential),
+                    FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
             log.debug("Google credential rejected: {}", ex.getMessage());

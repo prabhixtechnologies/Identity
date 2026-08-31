@@ -10,10 +10,8 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * Password authentication for the hosted login page.
@@ -56,7 +54,7 @@ public class IdentityAuthenticationProvider implements AuthenticationProvider {
         var authenticated = UsernamePasswordAuthenticationToken.authenticated(
                 user.getId().toString(),
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                SignInAuthorities.forFactor(FactorGrantedAuthority.PASSWORD_AUTHORITY));
         authenticated.setDetails(user.getEmail());
         return authenticated;
     }
