@@ -1,11 +1,17 @@
 package com.prabhix.identity.oauth;
 
+import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.security.FirstPartyHttpOrigins;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The one login page every Prabhix property redirects to.
@@ -26,13 +32,15 @@ public class LoginUiConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain loginUiChain(HttpSecurity http,
-                                            LoginFailureHandler failureHandler) throws Exception {
+                                            LoginFailureHandler failureHandler,
+                                            IdentityProperties properties) throws Exception {
         http
                 // /signup belongs on this chain and not the API one: it is a document with a form, so
                 // it needs a session to hold the pending authorization request and a CSRF token in the
                 // form, and it needs the CSP below or the gateway's floor stops it submitting at all.
                 .securityMatcher("/login", "/login/**", "/signup", "/oauth2/consent", "/assets/**",
                         "/logout")
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/login/**", "/signup", "/assets/**").permitAll()
                         .anyRequest().authenticated())
@@ -62,22 +70,34 @@ public class LoginUiConfig {
                 // form-action — unable to submit the form at all. It is set only when absent, so
                 // sending one here is what replaces it.
                 .headers(headers -> headers
-                        .contentSecurityPolicy(csp -> csp.policyDirectives(String.join("; ",
-                                "default-src 'none'",
-                                "style-src 'self'",
-                                // accounts.google.com for the sign-in button, which is absent from
-                                // the page unless a client id is configured. Naming it here costs
-                                // nothing when it is not.
-                                "script-src 'self' https://accounts.google.com",
-                                "frame-src https://accounts.google.com",
-                                // 'self' for passkey ceremony fetch(); Google for GIS token exchange.
-                                "connect-src 'self' https://accounts.google.com",
-                                "img-src 'self' data:",
-                                // 'self' and not 'none': every method on this page posts back here.
-                                "form-action 'self'",
-                                "base-uri 'none'",
-                                "frame-ancestors 'none'"))));
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(loginCsp(properties))));
 
         return http.build();
+    }
+
+    /**
+     * Chrome applies {@code form-action} to the whole redirect chain after a form POST. A successful
+     * sign-in goes Identity → {@code /oauth2/authorize} → the product callback. Listing only
+     * {@code 'self'} makes Chrome block that last hop and misreport it as a block on {@code /login}.
+     */
+    private static String loginCsp(IdentityProperties properties) {
+        List<String> formAction = new ArrayList<>();
+        formAction.add("'self'");
+        formAction.addAll(FirstPartyHttpOrigins.from(properties));
+
+        return String.join("; ",
+                "default-src 'none'",
+                "style-src 'self'",
+                // accounts.google.com for the sign-in button, which is absent from
+                // the page unless a client id is configured. Naming it here costs
+                // nothing when it is not.
+                "script-src 'self' https://accounts.google.com",
+                "frame-src https://accounts.google.com",
+                // 'self' for passkey ceremony fetch(); Google for GIS token exchange.
+                "connect-src 'self' https://accounts.google.com",
+                "img-src 'self' data:",
+                "form-action " + String.join(" ", formAction),
+                "base-uri 'none'",
+                "frame-ancestors 'none'");
     }
 }

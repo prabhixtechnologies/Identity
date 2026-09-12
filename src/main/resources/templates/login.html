@@ -37,6 +37,7 @@
 
         <!-- Step one: who are you. POST so the address never lands in the address bar / history. -->
         <form th:if="${stage == 'identify'}" method="post" th:action="@{/login/identify}" novalidate>
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <label for="email">Email address</label>
             <input id="email" name="email" type="email" autocomplete="username"
                    required autofocus inputmode="email" spellcheck="false" th:value="${email}">
@@ -54,7 +55,7 @@
             </p>
         </form>
 
-        <p class="help" th:if="${stage == 'identify' and signupAvailable}">
+        <p class="help">
             New to Prabhix? <a th:href="@{/signup}">Create an account</a>
         </p>
 
@@ -66,6 +67,7 @@
             </p>
 
             <form method="post" th:action="@{/login}" novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <input type="hidden" name="username" th:value="${email}">
                 <label for="password">Password</label>
                 <input id="password" name="password" type="password"
@@ -78,10 +80,12 @@
             <div class="alternatives">
                 <button type="button" class="secondary" id="passkey-button" hidden>Use a passkey</button>
                 <form method="post" th:action="@{/login/link}" class="inline">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <input type="hidden" name="email" th:value="${email}">
                     <button type="submit" class="secondary">Email me a sign-in link</button>
                 </form>
                 <form method="post" th:action="@{/login/code}" class="inline">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <input type="hidden" name="email" th:value="${email}">
                     <button type="submit" class="secondary">Email me a code</button>
                 </form>
@@ -100,6 +104,7 @@
 
         <div th:if="${stage == 'code'}">
             <form method="post" th:action="@{/login/code/verify}" novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <input type="hidden" name="email" th:value="${email}">
                 <label for="code">Six-digit code</label>
                 <input id="code" name="code" type="text" required autofocus
@@ -115,6 +120,7 @@
 
         <div th:if="${stage == 'phone'}">
             <form method="post" th:action="@{/login/phone}" novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <label for="phone">Phone number</label>
                 <input id="phone" name="phone" type="tel" required autofocus
                        autocomplete="tel" placeholder="+91 98765 43210" th:value="${number}">
@@ -124,6 +130,7 @@
 
             <form method="post" th:action="@{/login/phone/verify}" novalidate class="follow-on"
                   th:if="${not #strings.isEmpty(number)}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <input type="hidden" name="phone" th:value="${number}">
                 <label for="phone-code">Code from the message</label>
                 <input id="phone-code" name="code" type="text" required
@@ -142,6 +149,7 @@
 
         <div th:if="${stage == 'whatsapp'}">
             <form method="post" th:action="@{/login/whatsapp}" novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <label for="whatsapp-phone">Phone number</label>
                 <input id="whatsapp-phone" name="phone" type="tel" required autofocus
                        autocomplete="tel" placeholder="+91 98765 43210" th:value="${number}">
@@ -151,6 +159,7 @@
 
             <form method="post" th:action="@{/login/whatsapp/verify}" novalidate class="follow-on"
                   th:if="${not #strings.isEmpty(number)}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <input type="hidden" name="phone" th:value="${number}">
                 <label for="whatsapp-code">Code from WhatsApp</label>
                 <input id="whatsapp-code" name="code" type="text" required
@@ -168,6 +177,7 @@
         </div>
 
         <form th:if="${googleClientId}" id="google-form" method="post" th:action="@{/login/google}" hidden>
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <input type="hidden" name="credential" id="google-credential">
         </form>
     </section>

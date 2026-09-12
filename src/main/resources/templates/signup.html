@@ -38,6 +38,7 @@
         </p>
 
         <form th:if="${available}" method="post" th:action="@{/signup}" novalidate>
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <label for="name">Your name</label>
             <input id="name" name="name" type="text" autocomplete="name"
                    required autofocus maxlength="160" th:value="${name}">

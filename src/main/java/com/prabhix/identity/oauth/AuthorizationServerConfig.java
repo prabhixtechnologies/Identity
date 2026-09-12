@@ -100,6 +100,9 @@ public class AuthorizationServerConfig {
                                     providers.add(new PublicClientRefreshTokenAuthenticationProvider(clients)));
                         }))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                // Browser SPAs POST here for the code exchange; without CORS the fetch fails before
+                // PKCE even runs. Origins come from CorsConfigurationSource (first-party redirect URIs).
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.ignoringRequestMatchers(endpoints));
 
         http.exceptionHandling(handling -> handling
