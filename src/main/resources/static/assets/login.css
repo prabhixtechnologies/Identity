@@ -1,20 +1,8 @@
-/* Self-contained on purpose. This page is the last thing to keep working when a product is broken,
-   so it pulls in no fonts, no framework and nothing from another origin. */
-
-:root {
-    --bg: #0b0d12;
-    --card: #14171f;
-    --line: #262b36;
-    --field: #0e1117;
-    --text: #e8eaf0;
-    --muted: #9aa2b4;
-    --accent: #4f7cff;
-    --accent-soft: rgba(79, 124, 255, 0.12);
-    --danger: #ff6b6b;
-    --danger-soft: rgba(255, 107, 107, 0.12);
-}
+/* Hosted sign-in / signup. Tokens in prabhix-tokens.css. No external fonts (CSP). */
 
 * { box-sizing: border-box; }
+
+html { color-scheme: light dark; }
 
 body {
     margin: 0;
@@ -22,121 +10,228 @@ body {
     display: grid;
     place-items: center;
     padding: 24px;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    position: relative;
+    overflow-x: hidden;
+    background: var(--px-bg);
+    color: var(--px-ink);
+    font-family: var(--px-font-body);
+    font-size: 15px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    animation: page-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.shell { width: 100%; max-width: 390px; }
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    border-radius: 999px;
+    filter: blur(56px);
+    pointer-events: none;
+    z-index: 0;
+    animation: login-orb 16s ease-in-out infinite;
+}
+
+body::before {
+    width: min(28rem, 70vw);
+    height: min(28rem, 70vw);
+    left: -8%;
+    top: -6%;
+    background: color-mix(in srgb, var(--px-accent) 32%, transparent);
+}
+
+body::after {
+    width: min(24rem, 65vw);
+    height: min(24rem, 65vw);
+    right: -10%;
+    bottom: -8%;
+    background: color-mix(in srgb, var(--px-focus) 28%, transparent);
+    animation-delay: -7s;
+}
+
+@keyframes page-enter {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes login-orb {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(16px, -20px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body, body::before, body::after { animation: none; }
+    * { transition: none !important; }
+}
+
+.shell {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    z-index: 1;
+}
+
+.theme-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    width: auto;
+    min-width: 2.5rem;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--px-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--px-surface) 80%, transparent);
+    color: var(--px-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: color var(--px-motion), border-color var(--px-motion), background var(--px-motion), transform var(--px-motion);
+}
+
+.theme-toggle:hover {
+    color: var(--px-ink);
+    border-color: var(--px-accent);
+    transform: translateY(-1px);
+}
 
 .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 34px 30px;
+    background: color-mix(in srgb, var(--px-surface) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--px-border) 90%, transparent);
+    border-radius: calc(var(--px-radius) + 0.35rem);
+    padding: 2.35rem 1.9rem 1.9rem;
+    box-shadow: var(--px-shadow), 0 0 0 1px color-mix(in srgb, var(--px-accent) 6%, transparent);
+    backdrop-filter: blur(18px);
+    transition: background var(--px-motion), border-color var(--px-motion), box-shadow var(--px-motion);
 }
 
 .brand {
-    width: 44px;
-    height: 44px;
-    display: grid;
-    place-items: center;
-    margin-bottom: 20px;
-    border-radius: 12px;
-    background: var(--accent);
-    color: #fff;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    margin: 0 0 1.15rem;
+    font-family: var(--px-font-display);
+    font-size: 2rem;
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    background: linear-gradient(115deg, var(--px-ink) 30%, var(--px-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
-h1 { margin: 0 0 4px; font-size: 22px; font-weight: 650; }
-.sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+h1 {
+    margin: 0 0 0.4rem;
+    font-family: var(--px-font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.sub { margin: 0 0 1.55rem; color: var(--px-muted); font-size: 0.95rem; }
 
 label {
     display: block;
-    margin-bottom: 6px;
-    font-size: 13px;
-    font-weight: 550;
-    color: var(--muted);
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--px-muted);
 }
 
 input {
     width: 100%;
-    margin-bottom: 18px;
-    padding: 11px 13px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--field);
-    color: var(--text);
-    font-size: 15px;
+    margin-bottom: 1.1rem;
+    padding: 0.78rem 0.9rem;
+    border: 1px solid var(--px-border);
+    border-radius: calc(var(--px-radius) - 0.1rem);
+    background: color-mix(in srgb, var(--px-bg) 70%, var(--px-surface));
+    color: var(--px-ink);
+    font: inherit;
+    transition: border-color var(--px-motion), background var(--px-motion), box-shadow var(--px-motion);
 }
 
 input:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-    border-color: transparent;
+    outline: none;
+    border-color: var(--px-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--px-focus) 28%, transparent);
 }
 
-/* A one-time code is read off a screen and typed a character at a time, so it gets the spacing that
-   makes a transposed digit visible. */
 .code-input {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 22px;
-    letter-spacing: 6px;
+    font-size: 1.35rem;
+    letter-spacing: 0.35em;
     text-align: center;
 }
 
 button {
     width: 100%;
-    padding: 12px;
+    padding: 0.8rem 1rem;
     border: 0;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
+    border-radius: calc(var(--px-radius) - 0.1rem);
+    font: inherit;
+    font-weight: 650;
     cursor: pointer;
+    transition: transform var(--px-motion), filter var(--px-motion), border-color var(--px-motion), color var(--px-motion), background var(--px-motion), box-shadow var(--px-motion);
 }
 
-button.primary { background: var(--accent); color: #fff; }
-button.primary:hover { filter: brightness(1.08); }
+button.primary {
+    background: linear-gradient(135deg, var(--px-accent), var(--px-focus));
+    color: var(--px-accent-ink);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--px-accent) 28%, transparent);
+}
 
-/* Visibly secondary, so the page has one obvious next action rather than three competing ones. */
+button.primary:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+}
+
+button.primary:active { transform: none; }
+
 button.secondary {
     background: transparent;
-    border: 1px solid var(--line);
-    color: var(--text);
-    font-weight: 550;
+    border: 1px solid var(--px-border);
+    color: var(--px-ink);
+    font-weight: 600;
 }
 
-button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+button.secondary:hover {
+    border-color: var(--px-accent);
+    color: var(--px-accent);
+}
 
-.alternatives { display: grid; gap: 10px; }
+.alternatives { display: grid; gap: 0.65rem; }
 .inline { margin: 0; }
 
-/* The address, once given, so step two says who it is about. */
 .whoami {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 12px;
-    margin: 0 0 20px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    font-size: 14px;
+    gap: 0.75rem;
+    margin: 0 0 1.25rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--px-border);
+    border-radius: calc(var(--px-radius) - 0.1rem);
+    font-size: 0.92rem;
     word-break: break-all;
+    background: color-mix(in srgb, var(--px-bg) 65%, transparent);
 }
 
-.whoami .change { flex: none; color: var(--accent); text-decoration: none; font-size: 13px; }
+.whoami .change {
+    flex: none;
+    color: var(--px-accent);
+    text-decoration: none;
+    font-size: 0.82rem;
+}
+
 .whoami .change:hover { text-decoration: underline; }
 
 .divider {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin: 22px 0;
-    color: var(--muted);
-    font-size: 12px;
+    gap: 0.75rem;
+    margin: 1.35rem 0;
+    color: var(--px-muted);
+    font-size: 0.75rem;
 }
 
 .divider::before,
@@ -144,49 +239,43 @@ button.secondary:hover { border-color: var(--accent); color: var(--accent); }
     content: "";
     flex: 1;
     height: 1px;
-    background: var(--line);
+    background: var(--px-border);
 }
 
-.hint { margin: -8px 0 18px; color: var(--muted); font-size: 13px; }
+.hint { margin: -0.5rem 0 1.1rem; color: var(--px-muted); font-size: 0.82rem; }
 
-/* Separates "send me a code" from "here is the code", which are two steps in one panel. */
 .follow-on {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--px-border);
 }
 
 #google-button { display: flex; justify-content: center; min-height: 44px; }
 
 .alert {
-    margin: 0 0 18px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    font-size: 14px;
+    margin: 0 0 1.1rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: calc(var(--px-radius) - 0.1rem);
+    font-size: 0.9rem;
 }
 
-.alert.error { background: var(--danger-soft); color: var(--danger); }
-.alert.notice { background: var(--accent-soft); color: var(--accent); }
+.alert.error {
+    background: color-mix(in srgb, var(--px-danger) 12%, transparent);
+    color: var(--px-danger);
+}
 
-.help { margin: 18px 0 0; font-size: 14px; color: var(--muted); }
-.help a { color: var(--accent); text-decoration: none; }
+.alert.notice {
+    background: color-mix(in srgb, var(--px-accent) 12%, transparent);
+    color: var(--px-accent);
+}
+
+.help { margin: 1.1rem 0 0; font-size: 0.9rem; color: var(--px-muted); }
+.help a { color: var(--px-accent); text-decoration: none; }
 .help a:hover { text-decoration: underline; }
 
 .footprint {
-    margin: 20px 0 0;
+    margin: 1.35rem 0 0;
     text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-}
-
-/* Respects a light-mode preference rather than forcing dark on everybody. */
-@media (prefers-color-scheme: light) {
-    :root {
-        --bg: #f5f6f9;
-        --card: #fff;
-        --line: #dfe3ec;
-        --field: #fbfcfe;
-        --text: #12151c;
-        --muted: #5c6579;
-    }
+    color: var(--px-muted);
+    font-size: 0.75rem;
 }

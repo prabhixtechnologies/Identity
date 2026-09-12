@@ -46,6 +46,9 @@ public final class TestProperties {
                 // No SMS provider, so the phone flows refuse. Any test that needs them stubs
                 // SmsSender directly rather than reaching a real one from a unit test.
                 new IdentityProperties.Sms("", "", "", ""),
+                new IdentityProperties.WhatsApp(""),
+                new IdentityProperties.WebAuthn("localhost", "Prabhix Technologies",
+                        List.of("http://localhost:8081")),
                 mail(),
                 // No OAuth clients. Every test here exercises the direct sign-in path or key
                 // handling; the authorization code flow needs a booted server, not a unit test.
@@ -88,6 +91,8 @@ public final class TestProperties {
                 base.urls(),
                 base.sso(),
                 base.sms(),
+                base.whatsApp(),
+                base.webAuthn(),
                 base.mail(),
                 base.clients(),
                 base.platform(),

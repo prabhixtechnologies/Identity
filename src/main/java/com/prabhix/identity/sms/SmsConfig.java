@@ -26,6 +26,13 @@ public class SmsConfig {
                     + "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER to enable it.");
             return new DisabledSmsSender();
         }
+
+        // Local mock: codes land in the Identity log so SMS can be exercised without Twilio or Mailpit.
+        if ("mock".equalsIgnoreCase(sms.accountSid().trim())) {
+            log.info("SMS delivery via logging mock (TWILIO_ACCOUNT_SID=mock)");
+            return new LoggingSmsSender();
+        }
+
         if (sms.authToken() == null || sms.authToken().isBlank()) {
             // Refused at startup rather than at the first sign-in attempt. Half-configured credentials
             // would authenticate as nobody and return 401 from Twilio, which reads as their outage.

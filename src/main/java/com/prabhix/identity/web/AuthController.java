@@ -3,6 +3,7 @@ package com.prabhix.identity.web;
 import com.prabhix.identity.challenge.EmailVerificationService;
 import com.prabhix.identity.challenge.PasswordlessService;
 import com.prabhix.identity.challenge.PhoneAuthService;
+import com.prabhix.identity.challenge.WhatsAppAuthService;
 import com.prabhix.identity.security.AuthenticatedCaller;
 import com.prabhix.identity.session.DeviceSession;
 import com.prabhix.identity.session.SessionCookieService;
@@ -67,6 +68,7 @@ public class AuthController {
     private final CredentialService credentials;
     private final PasswordlessService passwordless;
     private final PhoneAuthService phone;
+    private final WhatsAppAuthService whatsApp;
     private final EmailVerificationService emailVerification;
     private final GoogleSsoService googleSso;
     private final SignupService signup;
@@ -244,6 +246,40 @@ public class AuthController {
     public AckResponse confirmPhoneVerification(@AuthenticationPrincipal AuthenticatedCaller caller,
                                                 @Valid @RequestBody PhoneVerifyConfirmRequest request) {
         return phone.confirmVerification(caller.userId(), request.phone(), request.code());
+    }
+
+    /**
+     * Sign-in by WhatsApp code, for an account whose number is already verified.
+     *
+     * <p>Same anti-enumeration and cost rules as SMS: an unknown destination sends nothing.
+     */
+    @PostMapping("/whatsapp/otp/request")
+    public AckResponse requestWhatsAppOtp(@Valid @RequestBody PhoneRequest request,
+                                          HttpServletRequest httpRequest) {
+        return whatsApp.requestOtp(request.phone(), clientIp(httpRequest));
+    }
+
+    @PostMapping("/whatsapp/otp/verify")
+    public TokenResponse verifyWhatsAppOtp(@Valid @RequestBody PhoneOtpVerifyRequest request,
+                                           HttpServletRequest httpRequest,
+                                           HttpServletResponse httpResponse) {
+        TokenResponse response = whatsApp.verifyOtp(request.phone(), request.code(),
+                device(request.deviceId(), request.deviceName(), request.deviceType(), httpRequest));
+        cookies.issue(httpResponse, response.sessionId());
+        return response;
+    }
+
+    @PostMapping("/whatsapp/verify/request")
+    public AckResponse requestWhatsAppVerification(@AuthenticationPrincipal AuthenticatedCaller caller,
+                                                   @Valid @RequestBody PhoneRequest request,
+                                                   HttpServletRequest httpRequest) {
+        return whatsApp.requestVerification(caller.userId(), request.phone(), clientIp(httpRequest));
+    }
+
+    @PostMapping("/whatsapp/verify/confirm")
+    public AckResponse confirmWhatsAppVerification(@AuthenticationPrincipal AuthenticatedCaller caller,
+                                                   @Valid @RequestBody PhoneVerifyConfirmRequest request) {
+        return whatsApp.confirmVerification(caller.userId(), request.phone(), request.code());
     }
 
     @PostMapping("/password/forgot")

@@ -20,8 +20,8 @@ import java.io.IOException;
 /**
  * Signs a browser in once some method has proved who it is, then resumes whatever asked.
  *
- * <p>Form login gets all of this from Spring Security for free. The other five methods on the hosted
- * page — magic link, emailed code, SMS code, Google, and the link landing — verify their proof in a
+ * <p>Form login gets all of this from Spring Security for free. The other methods on the hosted
+ * page — magic link, emailed code, SMS, WhatsApp, Google, passkey — verify their proof in a
  * service and then have to do by hand what {@code UsernamePasswordAuthenticationFilter} does after a
  * successful password check. Doing it in one place is what keeps them equivalent: a method that
  * forgot the session-fixation step, or saved no context, would appear to work and be a hole.

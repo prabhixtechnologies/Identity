@@ -6,6 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="color-scheme" content="light dark">
     <title>Create your account · Prabhix</title>
+    <link rel="stylesheet" th:href="@{/assets/prabhix-tokens.css}">
     <link rel="stylesheet" th:href="@{/assets/login.css}">
 </head>
 <!--
@@ -23,14 +24,14 @@
 -->
 <body>
 <main class="shell">
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle colour theme">Theme</button>
     <section class="card" aria-labelledby="heading">
-        <div class="brand" aria-hidden="true">PA</div>
+        <p class="brand">Prabhix</p>
         <h1 id="heading">Create your account</h1>
         <p class="sub">One account for every Prabhix product.</p>
 
         <p class="alert error" th:if="${error}" th:text="${error}" role="alert"></p>
 
-        <!-- Says so rather than accepting a password it would then have to throw away. -->
         <p class="alert notice" th:unless="${available}" role="status">
             Creating an account is not available on this deployment. Ask whoever administers it for an
             invitation.
@@ -50,7 +51,6 @@
             <input id="email" name="email" type="email" autocomplete="username"
                    required inputmode="email" spellcheck="false" th:value="${email}">
 
-            <!-- new-password, so a manager offers to generate one rather than filling in an old one. -->
             <label for="password">Password</label>
             <input id="password" name="password" type="password"
                    autocomplete="new-password" required minlength="10">
@@ -66,5 +66,9 @@
 
     <p class="footprint">Prabhix Technologies</p>
 </main>
+
+<script th:src="@{/assets/login.js}"
+        th:attr="data-csrf-token=${_csrf.token}, data-csrf-header=${_csrf.headerName}"
+        defer></script>
 </body>
 </html>

@@ -2,6 +2,7 @@ package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.challenge.PasswordlessService;
 import com.prabhix.identity.challenge.PhoneAuthService;
+import com.prabhix.identity.challenge.WhatsAppAuthService;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.provisioning.SignupService;
@@ -17,18 +18,16 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * The one sign-in page for every Prabhix product.
  *
- * <p>Six ways in, all landing in the same place: a session cookie on this origin, and then whatever
+ * <p>Several ways in, all landing in the same place: a session cookie on this origin, and then whatever
  * authorization request was waiting. Password is handled by Spring Security's form login at
- * {@code POST /login}; the other five are the methods below, because each has to verify its own kind
- * of proof before {@link HostedSignIn} can establish the session.
+ * {@code POST /login}; the other methods are below, because each has to verify its own kind of proof
+ * before {@link HostedSignIn} can establish the session.
  *
  * <p>Methods that need credentials this deployment does not have — Google without a client id, SMS
  * without a Twilio account — are not rendered at all. A visible button that returns "not enabled" is
@@ -37,6 +36,9 @@ import java.nio.charset.StandardCharsets;
  * <p>Every failure that involves an address answers the same way whether or not the address has an
  * account. The page would otherwise be a membership oracle, answering "is this person a customer"
  * one guess at a time.
+ *
+ * <p>Email and phone never appear in the query string. They live in {@link LoginChallengeState} so
+ * browser history, proxy logs and Referer headers do not retain them.
  */
 @Slf4j
 @Controller
@@ -49,6 +51,7 @@ public class LoginController {
     private final IdentityProperties properties;
     private final PasswordlessService passwordless;
     private final PhoneAuthService phones;
+    private final WhatsAppAuthService whatsApp;
     private final GoogleSsoService google;
     private final HostedSignIn hostedSignIn;
     private final SignupService signup;
@@ -59,10 +62,29 @@ public class LoginController {
                         @RequestParam(required = false) String sent,
                         @RequestParam(required = false) String code,
                         @RequestParam(required = false) String phone,
+                        @RequestParam(required = false) String whatsapp,
+                        @RequestParam(required = false) String method,
+                        @RequestParam(required = false) String clear,
+                        // Legacy: accepted once, then stripped so old tabs stop advertising PII.
                         @RequestParam(required = false) String email,
                         @RequestParam(required = false) String number,
-                        @RequestParam(required = false) String method,
+                        HttpServletRequest request,
                         Model model) {
+        if (clear != null) {
+            LoginChallengeState.clear(request);
+            return "redirect:/login";
+        }
+
+        if ((email != null && !email.isBlank()) || (number != null && !number.isBlank())) {
+            if (email != null && !email.isBlank()) {
+                LoginChallengeState.setEmail(request, email);
+            }
+            if (number != null && !number.isBlank()) {
+                LoginChallengeState.setPhone(request, number);
+            }
+            return "redirect:" + cleanLoginLocation(error, signedOut, sent, code, phone, whatsapp, method);
+        }
+
         if (error != null) {
             model.addAttribute("error", GENERIC_FAILURE);
         }
@@ -76,36 +98,50 @@ public class LoginController {
             model.addAttribute("notice",
                     "If that address is registered, a sign-in link is on its way. It expires shortly.");
         }
-        if (sent != null && phone != null) {
+        if (sent != null && (phone != null || whatsapp != null)) {
             model.addAttribute("notice", "If that number has an account, a code is on its way.");
         }
 
-        // Which step the page opens on. Held in the query string rather than the session so that a
-        // reload, or the browser's back button, shows what it did before.
-        //
-        // `choose` requires an address: without one, step two would ask for a password and post a
-        // blank username, which fails as bad credentials rather than as the missing field it is.
-        boolean identified = email != null && !email.isBlank();
+        String sessionEmail = LoginChallengeState.email(request);
+        String sessionPhone = LoginChallengeState.phone(request);
+        boolean identified = !sessionEmail.isBlank();
+
+        // Step flags stay in the query string (reload / back). The address does not.
         model.addAttribute("stage",
                 code != null ? "code"
                         : phone != null ? "phone"
+                        : whatsapp != null ? "whatsapp"
                         : "choose".equals(method) && identified ? "choose"
                         : "identify");
-        model.addAttribute("email", email != null ? email : "");
-        model.addAttribute("number", number != null ? number : "");
+        model.addAttribute("email", sessionEmail);
+        model.addAttribute("number", sessionPhone);
         model.addAttribute("googleClientId", google.enabled() ? google.clientId() : null);
         model.addAttribute("phoneEnabled", phones.enabled());
+        model.addAttribute("whatsappEnabled", whatsApp.enabled());
         model.addAttribute("forgotPasswordUrl", properties.urls().console() + "/forgot-password");
-        // Offered only where it would work. Without a platform to create the workspace in, the link
-        // would lead to a page that says signup is unavailable, which is a worse way to find out.
         model.addAttribute("signupAvailable", signup.available());
         return "login";
     }
 
+    /**
+     * Step one: capture the address into the session, then open step two on a clean URL.
+     *
+     * <p>POST rather than GET so the address is not written into history as a navigable query.
+     */
+    @PostMapping("/login/identify")
+    public String identify(@RequestParam String email, HttpServletRequest request) {
+        LoginChallengeState.setEmail(request, email);
+        return "redirect:/login?method=choose";
+    }
+
     /** Sends a link that signs the browser in when opened. */
     @PostMapping("/login/link")
-    public String requestLink(@RequestParam String email, HttpServletRequest request) {
-        passwordless.requestMagicLink(email, request.getRemoteAddr());
+    public String requestLink(@RequestParam(required = false) String email, HttpServletRequest request) {
+        String address = resolveEmail(email, request);
+        if (address.isBlank()) {
+            return "redirect:/login";
+        }
+        passwordless.requestMagicLink(address, request.getRemoteAddr());
         return "redirect:/login?sent=link";
     }
 
@@ -132,23 +168,28 @@ public class LoginController {
 
     /** Sends a short code to type back in, for people who cannot follow a link where they are. */
     @PostMapping("/login/code")
-    public String requestCode(@RequestParam String email, HttpServletRequest request) {
-        passwordless.requestOtp(email, request.getRemoteAddr());
-        return "redirect:/login?code&email=" + encode(email);
+    public String requestCode(@RequestParam(required = false) String email, HttpServletRequest request) {
+        String address = resolveEmail(email, request);
+        if (address.isBlank()) {
+            return "redirect:/login";
+        }
+        passwordless.requestOtp(address, request.getRemoteAddr());
+        return "redirect:/login?code";
     }
 
     @PostMapping("/login/code/verify")
-    public String verifyCode(@RequestParam String email,
+    public String verifyCode(@RequestParam(required = false) String email,
                              @RequestParam String code,
                              HttpServletRequest request,
                              HttpServletResponse response) throws IOException, ServletException {
+        String address = resolveEmail(email, request);
         try {
-            hostedSignIn.completeAndRedirect(passwordless.authenticateByOtp(email, code),
+            hostedSignIn.completeAndRedirect(passwordless.authenticateByOtp(address, code),
                     FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
             log.debug("Emailed code rejected: {}", ex.getMessage());
-            return "redirect:/login?code&email=" + encode(email) + "&error";
+            return "redirect:/login?code&error";
         }
     }
 
@@ -157,27 +198,52 @@ public class LoginController {
         try {
             phones.requestOtp(phone, request.getRemoteAddr());
         } catch (ApiException ex) {
-            // A malformed number is worth saying out loud — unlike an unknown one, it is the caller's
-            // typo and telling them reveals nothing about who has an account.
             return "redirect:/login?phone&error";
         }
-        // The number rides along so the code form below it knows what to verify against. It is what
-        // the person just typed, not a lookup, so echoing it discloses nothing.
-        return "redirect:/login?phone&sent=1&number=" + encode(phone);
+        LoginChallengeState.setPhone(request, phone);
+        return "redirect:/login?phone&sent=1";
     }
 
     @PostMapping("/login/phone/verify")
-    public String verifyPhoneCode(@RequestParam String phone,
+    public String verifyPhoneCode(@RequestParam(required = false) String phone,
                                   @RequestParam String code,
                                   HttpServletRequest request,
                                   HttpServletResponse response) throws IOException, ServletException {
+        String number = resolvePhone(phone, request);
         try {
-            hostedSignIn.completeAndRedirect(phones.authenticateByOtp(phone, code),
+            hostedSignIn.completeAndRedirect(phones.authenticateByOtp(number, code),
                     FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
             log.debug("SMS code rejected: {}", ex.getMessage());
-            return "redirect:/login?phone&error&number=" + encode(phone);
+            return "redirect:/login?phone&error";
+        }
+    }
+
+    @PostMapping("/login/whatsapp")
+    public String requestWhatsAppCode(@RequestParam String phone, HttpServletRequest request) {
+        try {
+            whatsApp.requestOtp(phone, request.getRemoteAddr());
+        } catch (ApiException ex) {
+            return "redirect:/login?whatsapp&error";
+        }
+        LoginChallengeState.setPhone(request, phone);
+        return "redirect:/login?whatsapp&sent=1";
+    }
+
+    @PostMapping("/login/whatsapp/verify")
+    public String verifyWhatsAppCode(@RequestParam(required = false) String phone,
+                                     @RequestParam String code,
+                                     HttpServletRequest request,
+                                     HttpServletResponse response) throws IOException, ServletException {
+        String number = resolvePhone(phone, request);
+        try {
+            hostedSignIn.completeAndRedirect(whatsApp.authenticateByOtp(number, code),
+                    FactorGrantedAuthority.OTT_AUTHORITY, request, response);
+            return null;
+        } catch (ApiException ex) {
+            log.debug("WhatsApp code rejected: {}", ex.getMessage());
+            return "redirect:/login?whatsapp&error";
         }
     }
 
@@ -194,8 +260,6 @@ public class LoginController {
                          HttpServletRequest request,
                          HttpServletResponse response) throws IOException, ServletException {
         try {
-            // Google proved this with its own authorization code flow, so that is the factor to
-            // record — not OTT, which would claim we mailed them something.
             hostedSignIn.completeAndRedirect(google.authenticate(credential),
                     FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY, request, response);
             return null;
@@ -205,7 +269,68 @@ public class LoginController {
         }
     }
 
-    private String encode(String value) {
-        return UriUtils.encodeQueryParam(value, StandardCharsets.UTF_8);
+    private static String resolveEmail(String posted, HttpServletRequest request) {
+        if (posted != null && !posted.isBlank()) {
+            LoginChallengeState.setEmail(request, posted);
+            return posted.trim();
+        }
+        return LoginChallengeState.email(request);
+    }
+
+    private static String resolvePhone(String posted, HttpServletRequest request) {
+        if (posted != null && !posted.isBlank()) {
+            LoginChallengeState.setPhone(request, posted);
+            return posted.trim();
+        }
+        return LoginChallengeState.phone(request);
+    }
+
+    private static String cleanLoginLocation(String error,
+                                             String signedOut,
+                                             String sent,
+                                             String code,
+                                             String phone,
+                                             String whatsapp,
+                                             String method) {
+        StringBuilder target = new StringBuilder("/login");
+        boolean first = true;
+        if (error != null) {
+            target.append(first ? '?' : '&').append("error");
+            if ("expired".equals(error)) {
+                target.append("=expired");
+            }
+            first = false;
+        }
+        if (signedOut != null) {
+            target.append(first ? '?' : '&').append("signedOut");
+            first = false;
+        }
+        if (sent != null) {
+            target.append(first ? '?' : '&').append("sent");
+            if (!sent.isBlank() && !"1".equals(sent) && !"true".equals(sent)) {
+                target.append('=').append(sent);
+            } else if ("link".equals(sent)) {
+                target.append("=link");
+            } else if (!sent.isBlank()) {
+                target.append('=').append(sent);
+            }
+            first = false;
+        }
+        if (code != null) {
+            target.append(first ? '?' : '&').append("code");
+            first = false;
+        }
+        if (phone != null) {
+            target.append(first ? '?' : '&').append("phone");
+            first = false;
+        }
+        if (whatsapp != null) {
+            target.append(first ? '?' : '&').append("whatsapp");
+            first = false;
+        }
+        if ("choose".equals(method)) {
+            target.append(first ? '?' : '&').append("method=choose");
+        }
+        return target.toString();
     }
 }

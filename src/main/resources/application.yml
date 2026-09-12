@@ -220,6 +220,18 @@ prabhix:
       from-number: ${TWILIO_FROM_NUMBER:}
       messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
 
+    # WhatsApp OTP shares TWILIO_ACCOUNT_SID. Blank from-number disables WhatsApp for a real SID;
+    # SID=mock uses LoggingWhatsAppSender regardless so local development needs no sandbox number.
+    whats-app:
+      from-number: ${TWILIO_WHATSAPP_FROM:}
+
+    # Passkeys. rp-id must match the host the browser sees (localhost locally, the public domain in
+    # production). origins are compared for exact equality against clientData.origin.
+    web-authn:
+      rp-id: ${IDENTITY_WEBAUTHN_RP_ID:localhost}
+      rp-name: ${IDENTITY_WEBAUTHN_RP_NAME:Prabhix Technologies}
+      origins: ${IDENTITY_WEBAUTHN_ORIGIN:http://localhost:8081}
+
     # First-party OAuth clients, seeded on every boot by RegisteredClientSeeder and updated in place.
     #
     # Redirect URIs are matched for exact equality — never by prefix and never with a wildcard, because
@@ -255,9 +267,9 @@ prabhix:
       - client-id: prabhix-mobistack
         name: Prabhix MobiStack
         redirect-uris:
-          - ${MOBISTACK_URL:http://localhost:5173}/auth/callback
+          - ${MOBISTACK_URL:http://localhost:5176}/auth/callback
         post-logout-redirect-uris:
-          - ${MOBISTACK_URL:http://localhost:5173}/
+          - ${MOBISTACK_URL:http://localhost:5176}/
       # The scheme is the applicationId, which for the OneOps flavor is still `com.prabhix.operator` —
       # what the app was called before the product was named. Renaming the id would publish a second,
       # unrelated app and orphan every phone that already has this one, so it stays.

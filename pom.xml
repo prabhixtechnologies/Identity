@@ -25,6 +25,7 @@
         <java.version>25</java.version>
         <build.dir>${project.basedir}/target</build.dir>
         <jjwt.version>0.12.6</jjwt.version>
+        <webauthn4j.version>0.31.9.RELEASE</webauthn4j.version>
         <!-- Same version the platform backend sends SES mail with, so that both services talk to SES
              through identical client behaviour. -->
         <awssdk.version>2.29.52</awssdk.version>
@@ -173,6 +174,17 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!--
+          Server-side WebAuthn / passkey verification. Kept on the latest line that targets Jackson 3,
+          matching Boot 4's mapper stack. Ceremony options and attestation/assertion checks live here;
+          credential persistence is ours.
+        -->
+        <dependency>
+            <groupId>com.webauthn4j</groupId>
+            <artifactId>webauthn4j-core</artifactId>
+            <version>${webauthn4j.version}</version>
         </dependency>
 
         <dependency>

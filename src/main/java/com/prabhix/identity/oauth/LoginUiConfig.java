@@ -70,7 +70,8 @@ public class LoginUiConfig {
                                 // nothing when it is not.
                                 "script-src 'self' https://accounts.google.com",
                                 "frame-src https://accounts.google.com",
-                                "connect-src https://accounts.google.com",
+                                // 'self' for passkey ceremony fetch(); Google for GIS token exchange.
+                                "connect-src 'self' https://accounts.google.com",
                                 "img-src 'self' data:",
                                 // 'self' and not 'none': every method on this page posts back here.
                                 "form-action 'self'",

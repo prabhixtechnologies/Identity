@@ -24,6 +24,8 @@ public record IdentityProperties(
         Urls urls,
         Sso sso,
         @DefaultValue Sms sms,
+        @DefaultValue WhatsApp whatsApp,
+        @DefaultValue WebAuthn webAuthn,
         @DefaultValue Mail mail,
         @DefaultValue List<Client> clients,
         @DefaultValue Platform platform,
@@ -114,6 +116,30 @@ public record IdentityProperties(
             @DefaultValue("") String authToken,
             @DefaultValue("") String fromNumber,
             @DefaultValue("") String messagingServiceSid) {
+    }
+
+    /**
+     * WhatsApp OTP, sharing the Twilio account SID with {@link Sms}.
+     *
+     * @param fromNumber blank disables WhatsApp when a real SID is set. With {@code TWILIO_ACCOUNT_SID
+     *     =mock} the logging sender is used regardless, so local development does not need a sandbox
+     *     from-number.
+     */
+    public record WhatsApp(@DefaultValue("") String fromNumber) {
+    }
+
+    /**
+     * Passkey / WebAuthn relying-party settings.
+     *
+     * @param rpId registrable domain scope for credentials (e.g. {@code localhost} or
+     *     {@code prabhixtechnologies.com})
+     * @param origins expected browser origins for the ceremony; a phishing page on another origin
+     *     fails verification even if it somehow obtained the challenge
+     */
+    public record WebAuthn(
+            @DefaultValue("localhost") String rpId,
+            @DefaultValue("Prabhix Technologies") String rpName,
+            @DefaultValue({"http://localhost:8081"}) List<String> origins) {
     }
 
     /**
