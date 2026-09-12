@@ -252,6 +252,12 @@ prabhix:
           - ${MAILROOM_URL:http://localhost:5175}/auth/callback
         post-logout-redirect-uris:
           - ${MAILROOM_URL:http://localhost:5175}/
+      - client-id: prabhix-mobistack
+        name: Prabhix MobiStack
+        redirect-uris:
+          - ${MOBISTACK_URL:http://localhost:5173}/auth/callback
+        post-logout-redirect-uris:
+          - ${MOBISTACK_URL:http://localhost:5173}/
       # The scheme is the applicationId, which for the OneOps flavor is still `com.prabhix.operator` —
       # what the app was called before the product was named. Renaming the id would publish a second,
       # unrelated app and orphan every phone that already has this one, so it stays.
@@ -276,6 +282,13 @@ prabhix:
         redirect-uris:
           - com.prabhix.mailroom:/oauth2redirect
           - com.prabhix.mailroom.debug:/oauth2redirect
+      # Expo scheme is `mobistack` (mobile/app.json), not the Android applicationId. AppAuth receives
+      # the redirect on that custom scheme from a Custom Tab — same shape as the other Android clients.
+      - client-id: prabhix-mobistack-android
+        name: Prabhix MobiStack for Android
+        redirect-uris:
+          - mobistack:/oauth2redirect
+          - mobistack://oauth2redirect
 
     mail:
       from: ${IDENTITY_MAIL_FROM:security@prabhixtechnologies.com}

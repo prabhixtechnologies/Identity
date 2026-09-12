@@ -158,7 +158,7 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out identity-signi
 | `IDENTITY_DB_URL`, `IDENTITY_DB_USER`, `IDENTITY_DB_PASSWORD` | Its own database. |
 | `REDIS_HOST`, `REDIS_PASSWORD` | Shared with the products, for the deny list. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Where auth mail goes. |
-| `CONSOLE_URL`, `ADMIN_URL` | Where emailed links point. Console **router** paths, not API paths — these drifted apart once and every magic link 404'd. |
+| `CONSOLE_URL`, `ADMIN_URL`, `MAILROOM_URL`, `MOBISTACK_URL` | Where emailed links and OAuth redirect URIs point. Console **router** paths, not API paths — these drifted apart once and every magic link 404'd. |
 | `SESSION_COOKIE_DOMAIN` | The registrable parent domain, so one sign-in covers every Prabhix hostname. Empty means host-only, which is right locally. |
 | `GOOGLE_CLIENT_ID` | Blank disables Google sign-in rather than failing at request time. |
 | `IDENTITY_SERVICE_TOKEN` | What a product presents to `/internal`. Blank disables the endpoint, which is the right default for a deployment nobody gave one. |

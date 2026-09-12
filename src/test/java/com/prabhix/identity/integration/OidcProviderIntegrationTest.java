@@ -154,8 +154,9 @@ class OidcProviderIntegrationTest {
     @DisplayName("configured clients are seeded as public clients requiring PKCE, with no consent")
     void clientsAreSeededFromConfiguration() throws Exception {
         for (String clientId : new String[]{
-                "prabhix-console", "prabhix-admin", "prabhix-mailroom",
-                "prabhix-oneops-android", "prabhix-admin-android", "prabhix-mailroom-android"}) {
+                "prabhix-console", "prabhix-admin", "prabhix-mailroom", "prabhix-mobistack",
+                "prabhix-oneops-android", "prabhix-admin-android", "prabhix-mailroom-android",
+                "prabhix-mobistack-android"}) {
             RegisteredClient client = clients.findByClientId(clientId);
             assertThat(client).as("client %s should be seeded", clientId).isNotNull();
             assertThat(client.getClientSettings().isRequireProofKey())
