@@ -15,7 +15,9 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
@@ -23,6 +25,12 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2AccessTokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -56,7 +64,10 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain authorizationServerChain(HttpSecurity http,
+                                                        RegisteredClientRepository clients,
+                                                        OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator)
+            throws Exception {
         // Spring Security 7 removed the static applyDefaultSecurity, so what it did is written out
         // here. It was three things, and all three still matter:
         //
@@ -78,7 +89,16 @@ public class AuthorizationServerConfig {
                         // Turns on the OIDC half: the id_token, /userinfo, and RP-initiated logout.
                         // Dynamic client registration stays off — a client that can register itself
                         // can choose its own redirect URI, which is the whole attack.
-                        .oidc(Customizer.withDefaults()))
+                        .oidc(Customizer.withDefaults())
+                        .tokenGenerator(tokenGenerator)
+                        // Append, do not replace: confidential-client converters must still run first
+                        // when a client_secret is present. Ours only matches refresh_token + client_id.
+                        .clientAuthentication(clientAuth -> {
+                            clientAuth.authenticationConverters(converters ->
+                                    converters.add(new PublicClientRefreshTokenAuthenticationConverter()));
+                            clientAuth.authenticationProviders(providers ->
+                                    providers.add(new PublicClientRefreshTokenAuthenticationProvider(clients)));
+                        }))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
                 .csrf(csrf -> csrf.ignoringRequestMatchers(endpoints));
 
@@ -90,6 +110,23 @@ public class AuthorizationServerConfig {
                         new MediaTypeRequestMatcher(org.springframework.http.MediaType.TEXT_HTML)));
 
         return http.build();
+    }
+
+    /**
+     * Access / ID tokens via JWT, plus refresh tokens for first-party public (mobile) clients.
+     *
+     * <p>Replacing Spring's default refresh generator is required: it refuses to mint a refresh token
+     * when the client authenticated with {@code none}, which is every Android AppAuth client we ship.
+     */
+    @Bean
+    public OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator(
+            JWKSource<SecurityContext> jwkSource,
+            OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer) {
+        JwtGenerator jwtGenerator = new JwtGenerator(new NimbusJwtEncoder(jwkSource));
+        jwtGenerator.setJwtCustomizer(jwtCustomizer);
+        OAuth2AccessTokenGenerator accessTokenGenerator = new OAuth2AccessTokenGenerator();
+        return new DelegatingOAuth2TokenGenerator(
+                jwtGenerator, accessTokenGenerator, new PublicClientRefreshTokenGenerator());
     }
 
     /**
