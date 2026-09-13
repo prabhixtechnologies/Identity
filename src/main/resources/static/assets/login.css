@@ -136,17 +136,28 @@ body::after {
     transition: background var(--px-motion), border-color var(--px-motion), box-shadow var(--px-motion);
 }
 
-.brand {
+.brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     margin: 0 0 1.15rem;
+}
+
+.brand-mark {
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+}
+
+.brand {
+    margin: 0;
     font-family: var(--px-font-display);
     font-size: 2rem;
     font-weight: 650;
     letter-spacing: -0.035em;
     line-height: 1.05;
-    background: linear-gradient(115deg, var(--px-ink) 30%, var(--px-accent));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--px-ink);
 }
 
 h1 {
