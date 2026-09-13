@@ -2,6 +2,7 @@ package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.security.FirstPartyHttpOrigins;
+import com.prabhix.identity.session.SessionCookieService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -33,7 +34,8 @@ public class LoginUiConfig {
     @Order(2)
     public SecurityFilterChain loginUiChain(HttpSecurity http,
                                             LoginFailureHandler failureHandler,
-                                            IdentityProperties properties) throws Exception {
+                                            IdentityProperties properties,
+                                            SessionCookieService sessionCookies) throws Exception {
         http
                 // /signup belongs on this chain and not the API one: it is a document with a form, so
                 // it needs a session to hold the pending authorization request and a CSRF token in the
@@ -42,7 +44,7 @@ public class LoginUiConfig {
                         "/logout")
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/login", "/login/**", "/signup", "/assets/**").permitAll()
+                        .requestMatchers("/login", "/login/**", "/signup", "/assets/**", "/logout").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
@@ -57,7 +59,11 @@ public class LoginUiConfig {
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?signedOut")
                         .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID"))
+                        .deleteCookies("JSESSIONID")
+                        // Servlet deleteCookies does not honor Domain= on pbx_session, so the
+                        // shared parent-domain cookie would survive a hosted sign-out.
+                        .addLogoutHandler((request, response, authentication) ->
+                                sessionCookies.clear(response)))
                 // Form posts are cookie-authenticated, so this chain is exactly the CSRF surface the
                 // API chain is not. Left enabled, with the token rendered into the form.
                 .sessionManagement(session ->

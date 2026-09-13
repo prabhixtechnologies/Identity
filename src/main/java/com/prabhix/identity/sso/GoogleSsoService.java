@@ -14,11 +14,14 @@ import com.prabhix.identity.user.IdentityUser;
 import com.prabhix.identity.web.AuthDtos.TokenResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +34,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class GoogleSsoService {
 
-    private static final String TOKENINFO = "https://oauth2.googleapis.com/tokeninfo?id_token={token}";
+    private static final String TOKENINFO = "https://oauth2.googleapis.com/tokeninfo";
 
     private final AuthIdentityRepository identities;
     private final CredentialService credentials;
@@ -126,7 +129,14 @@ public class GoogleSsoService {
 
     private JsonNode fetchTokenInfo(String idToken) {
         try {
-            JsonNode body = restClient.get().uri(TOKENINFO, idToken).retrieve().body(JsonNode.class);
+            // POST with a form body so the token is not written into proxy or access logs as a
+            // query string. Google's tokeninfo endpoint accepts either.
+            JsonNode body = restClient.post()
+                    .uri(TOKENINFO)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("id_token=" + URLEncoder.encode(idToken, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .body(JsonNode.class);
             if (body == null) {
                 throw invalidToken();
             }

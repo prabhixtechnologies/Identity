@@ -71,6 +71,24 @@ body::after {
     z-index: 1;
 }
 
+.skip-link {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 10;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--px-accent);
+    color: var(--px-accent-ink, #fff);
+    font-weight: 700;
+    text-decoration: none;
+    transform: translateY(-200%);
+}
+
+.skip-link:focus {
+    transform: none;
+}
+
 .theme-toggle {
     position: absolute;
     top: 0;
@@ -95,6 +113,17 @@ body::after {
     color: var(--px-ink);
     border-color: var(--px-accent);
     transform: translateY(-1px);
+}
+
+@media (max-width: 420px) {
+    .card {
+        padding: 1.5rem 1.15rem 1.25rem;
+    }
+    .theme-toggle {
+        position: static;
+        margin: 0 0 0.75rem auto;
+        display: block;
+    }
 }
 
 .card {
@@ -140,6 +169,7 @@ label {
 
 input {
     width: 100%;
+    min-height: 44px;
     margin-bottom: 1.1rem;
     padding: 0.78rem 0.9rem;
     border: 1px solid var(--px-border);
@@ -165,6 +195,7 @@ input:focus {
 
 button {
     width: 100%;
+    min-height: 44px;
     padding: 0.8rem 1rem;
     border: 0;
     border-radius: calc(var(--px-radius) - 0.1rem);

@@ -2,6 +2,7 @@ package com.prabhix.identity.challenge;
 
 import com.prabhix.identity.challenge.AuthChallenge.ChallengePurpose;
 import com.prabhix.identity.common.ApiException;
+import com.prabhix.identity.common.Emails;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.common.Secrets;
 import com.prabhix.identity.config.IdentityProperties;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -26,9 +28,22 @@ public class ChallengeService {
     private final AuthChallengeRepository challenges;
     private final IdentityProperties properties;
 
+    private static final Duration RAISE_COOLDOWN = Duration.ofSeconds(45);
+
     /** @return the raw secret, which exists nowhere else — only its hash is stored */
     @Transactional
     public Raised raise(ChallengePurpose purpose, UUID userId, String destination, String ipAddress) {
+        if (destination != null && !destination.isBlank()) {
+            challenges.findFirstByDestinationAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                            Emails.normalize(destination), purpose)
+                    .ifPresent(existing -> {
+                        Instant created = existing.getCreatedAt();
+                        if (created != null && created.isAfter(Instant.now().minus(RAISE_COOLDOWN))) {
+                            throw ApiException.of(ErrorCode.RATE_LIMITED,
+                                    "Wait a moment before requesting another code.");
+                        }
+                    });
+        }
         // A short numeric code for anything typed back in by hand, a long random token for anything
         // clicked. Sending a 256-bit token by SMS would be unusable, and putting a six-digit code in a
         // link would be guessable by anyone who wanted to try a million of them.
@@ -39,7 +54,7 @@ public class ChallengeService {
         AuthChallenge challenge = new AuthChallenge();
         challenge.setPurpose(purpose);
         challenge.setUserId(userId);
-        challenge.setDestination(destination);
+        challenge.setDestination(Emails.normalize(destination));
         challenge.setSecretHash(Secrets.sha256(raw));
         challenge.setExpiresAt(Instant.now().plus(properties.challenge().ttl()));
         challenge.setMaxAttempts(properties.challenge().maxAttempts());

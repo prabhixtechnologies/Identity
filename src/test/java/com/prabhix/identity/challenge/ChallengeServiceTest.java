@@ -40,6 +40,9 @@ class ChallengeServiceTest {
             if (challenge.getId() == null) {
                 challenge.setId(UUID.randomUUID());
             }
+            if (challenge.getCreatedAt() == null) {
+                challenge.setCreatedAt(Instant.now());
+            }
             rows.put(challenge.getId(), challenge);
             return challenge;
         });
@@ -154,6 +157,16 @@ class ChallengeServiceTest {
 
         assertThat(consumed.getConsumedAt()).isNotNull();
         assertThat(consumed.getUserId()).isEqualTo(userId);
+    }
+
+    @Test
+    @DisplayName("a second challenge to the same destination is refused for 45 seconds")
+    void raiseIsCooledDown() {
+        service.raise(ChallengePurpose.EMAIL_OTP, userId, "a@b.com", null);
+
+        assertThat(catchApi(() ->
+                service.raise(ChallengePurpose.EMAIL_OTP, userId, "a@b.com", null)).getCode())
+                .isEqualTo(ErrorCode.RATE_LIMITED);
     }
 
     @Test

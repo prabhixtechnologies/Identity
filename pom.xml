@@ -314,6 +314,19 @@
     </build>
 
     <profiles>
+        <!--
+          Production still targets 25. Maven on many laptops uses JAVA_HOME 17, which cannot
+          emit release 25. Below 25, emit 17 bytecode; a 25 runtime still gets JVM features.
+        -->
+        <profile>
+            <id>jdk-below-25</id>
+            <activation>
+                <jdk>[1.8,25)</jdk>
+            </activation>
+            <properties>
+                <java.version>17</java.version>
+            </properties>
+        </profile>
         <!-- mvn test -Pintegration  → also runs Testcontainers-backed tests -->
         <profile>
             <id>integration</id>
