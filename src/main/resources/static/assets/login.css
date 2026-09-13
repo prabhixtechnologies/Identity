@@ -2,7 +2,10 @@
 
 * { box-sizing: border-box; }
 
-html { color-scheme: light dark; }
+html {
+    color-scheme: light dark;
+    overflow-x: clip;
+}
 
 body {
     margin: 0;
@@ -11,7 +14,7 @@ body {
     place-items: center;
     padding: 24px;
     position: relative;
-    overflow-x: hidden;
+    overflow-x: clip;
     background: var(--px-bg);
     color: var(--px-ink);
     font-family: var(--px-font-body);

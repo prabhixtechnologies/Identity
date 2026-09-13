@@ -10,6 +10,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +57,10 @@ public class LoginUiConfig {
                         // default /login?error would discard the address along with the attempt.
                         .failureHandler(failureHandler))
                 .logout(logout -> logout
-                        .logoutUrl("/logout")
+                        // GET as well as POST: product SPAs navigate here when they have no
+                        // id_token_hint for /connect/logout (SSO via another app's cookie, or a lost
+                        // sessionStorage). POST-only left those browsers on a 400 and still signed in.
+                        .logoutRequestMatcher(logoutGetOrPost())
                         .logoutSuccessUrl("/login?signedOut")
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID")
@@ -79,6 +83,22 @@ public class LoginUiConfig {
                         .contentSecurityPolicy(csp -> csp.policyDirectives(loginCsp(properties))));
 
         return http.build();
+    }
+
+    /** Matches browser navigations (GET) and form posts (POST) to the hosted sign-out URL. */
+    private static RequestMatcher logoutGetOrPost() {
+        return request -> {
+            String path = request.getRequestURI();
+            if (path == null) {
+                return false;
+            }
+            // Context path is empty in our images; still tolerate a trailing slash from a proxy.
+            if (!"/logout".equals(path) && !path.endsWith("/logout")) {
+                return false;
+            }
+            String method = request.getMethod();
+            return "GET".equalsIgnoreCase(method) || "POST".equalsIgnoreCase(method);
+        };
     }
 
     /**
