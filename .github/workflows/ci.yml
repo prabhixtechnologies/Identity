@@ -60,6 +60,50 @@ jobs:
           grep -hoE 'Tests run: [0-9]+, Failures: [0-9]+, Errors: [0-9]+, Skipped: [0-9]+' build.log | tail -1
           echo "The agent is loaded up front."
 
+  # The starter every product backend verifies tokens with. Built on every run so a change to the
+  # server cannot quietly break the client's tests; published only from main, and only when the
+  # module itself changed, because GitHub Packages refuses to overwrite a released version and a
+  # no-op publish would fail the build.
+  client:
+    name: identity-spring-boot-starter
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          # Writes ~/.m2/settings.xml with a <server id="github"> entry backed by GITHUB_TOKEN, which
+          # is what the distributionManagement in client/pom.xml points at.
+          server-id: github
+
+      - name: Verify
+        run: mvn -B -f client/pom.xml verify
+
+      - name: Changed since the previous commit?
+        id: changed
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- client/; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to GitHub Packages
+        if: steps.changed.outputs.publish == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -f client/pom.xml -DskipTests deploy
+
   # The schema is one generated baseline (Platform's deploy/squash-baseline.py produced it). The
   # Testcontainers tests cover the queries; this covers the file itself applying to nothing at all,
   # which is the state every new environment starts in.
