@@ -1,0 +1,96 @@
+/* Hosted /account. Shares login.css tokens; this file is the wider layout and lists. */
+
+.account-page {
+    place-items: start center;
+}
+
+.account-shell {
+    max-width: 36rem;
+    margin: 1.5rem auto 2.5rem;
+}
+
+.account-nav {
+    margin: 0 0 1.5rem;
+}
+
+.account-section {
+    margin-top: 1.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--px-border);
+}
+
+.account-section h2 {
+    margin: 0 0 1rem;
+    font-family: var(--px-font-display);
+    font-size: 1.05rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+}
+
+.account-section h3 {
+    margin: 1.35rem 0 0.65rem;
+    font-size: 0.88rem;
+    font-weight: 650;
+    color: var(--px-muted);
+}
+
+.cred-list {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.cred-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--px-border);
+    border-radius: calc(var(--px-radius) - 0.1rem);
+    background: color-mix(in srgb, var(--px-bg) 65%, transparent);
+}
+
+.cred-row form {
+    margin: 0;
+}
+
+.cred-label {
+    margin: 0;
+    font-weight: 650;
+}
+
+.muted {
+    margin: 0.15rem 0 0;
+    color: var(--px-muted);
+    font-size: 0.82rem;
+}
+
+button.compact {
+    width: auto;
+    min-height: 36px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+button.danger {
+    background: color-mix(in srgb, var(--px-danger) 12%, transparent);
+    color: var(--px-danger);
+    border: 1px solid color-mix(in srgb, var(--px-danger) 35%, transparent);
+    font-weight: 650;
+}
+
+button.danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--px-danger) 20%, transparent);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.enrol {
+    margin: 0 0 0.5rem;
+}

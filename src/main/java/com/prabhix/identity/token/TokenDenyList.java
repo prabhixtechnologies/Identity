@@ -1,7 +1,11 @@
 package com.prabhix.identity.token;
 
 import com.prabhix.identity.config.IdentityProperties;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -32,8 +36,10 @@ import java.util.UUID;
  *       token would otherwise be rejected for the rest of the TTL.
  * </ul>
  *
- * <p>Redis being unavailable must not lock everyone out, so lookups fail open and log. The exposure
- * is bounded by the 15-minute TTL, which is a better trade than a total outage.
+ * <p>Redis being unavailable must not lock everyone out, so lookups <b>fail open</b> and increment
+ * {@code prabhix.identity.deny_list.redis_unavailable}. The exposure is bounded by the 15-minute
+ * TTL, which is a better trade than a total outage. Writes that fail increment the same counter
+ * and are logged as errors: a dropped revocation is a security event, not noise.
  */
 @Slf4j
 @Component
@@ -47,10 +53,19 @@ public class TokenDenyList {
 
     private final StringRedisTemplate redis;
     private final Duration ttl;
+    private final Counter redisUnavailable;
 
     public TokenDenyList(StringRedisTemplate redis, IdentityProperties properties) {
+        this(redis, properties, new SimpleMeterRegistry());
+    }
+
+    @Autowired
+    public TokenDenyList(StringRedisTemplate redis, IdentityProperties properties, MeterRegistry meters) {
         this.redis = redis;
         this.ttl = properties.token().accessTokenTtl();
+        this.redisUnavailable = Counter.builder("prabhix.identity.deny_list.redis_unavailable")
+                .description("Deny-list Redis outage: lookups fail open; writes are dropped")
+                .register(meters);
     }
 
     /** Revokes one device session, e.g. on logout or "sign out this device". */
@@ -91,6 +106,7 @@ public class TokenDenyList {
             }
             return issuedBefore(issuedAt, revokedAt);
         } catch (RuntimeException ex) {
+            redisUnavailable.increment();
             log.warn("Deny-list check failed, allowing the request through: {}", ex.getMessage());
             return false;
         }
@@ -122,7 +138,7 @@ public class TokenDenyList {
         try {
             redis.opsForValue().set(key, value, ttl);
         } catch (RuntimeException ex) {
-            // Logged loudly: a dropped revocation is a real security event, not noise.
+            redisUnavailable.increment();
             log.error("Could not write deny-list entry {}. Revocation will lag until the token expires.",
                     key, ex);
         }

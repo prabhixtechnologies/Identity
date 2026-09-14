@@ -1,6 +1,8 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.user.IdentityUser;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +18,8 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+
+import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /**
  * Signs a browser in once some method has proved who it is, then resumes whatever asked.
@@ -46,7 +50,10 @@ public class HostedSignIn {
     private final SavedRequestAwareAuthenticationSuccessHandler success =
             new SavedRequestAwareAuthenticationSuccessHandler();
 
-    public HostedSignIn(IdentityProperties properties) {
+    private final AuthEventRecorder events;
+
+    public HostedSignIn(IdentityProperties properties, AuthEventRecorder events) {
+        this.events = events;
         // Where to go when nothing was saved. A magic link opened on a phone, while the flow was
         // started on a laptop, has no authorization request in this session to resume — so it lands
         // in the console rather than on a dead end.
@@ -76,6 +83,9 @@ public class HostedSignIn {
         // Held in the session, not just the thread: the pending /oauth2/authorize arrives as a
         // separate request and reads it from there.
         contexts.saveContext(context, request, response);
+
+        events.success(AuthEventType.LOGIN_SUCCEEDED, user.getId(), user.getEmail(),
+                details("method", factor, "surface", "hosted"));
 
         success.onAuthenticationSuccess(request, response, authentication);
     }

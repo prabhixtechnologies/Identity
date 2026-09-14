@@ -180,7 +180,7 @@ class PhoneAuthServiceTest {
         AuthChallenge challenge = new AuthChallenge();
         challenge.setUserId(user.getId());
         when(challenges.consumeByCode(anyString(), anyString(), any())).thenReturn(challenge);
-        when(credentials.requireActive(user.getId())).thenReturn(user);
+        when(credentials.requireSignInAllowed(user.getId())).thenReturn(user);
 
         service.verifyOtp("+919876543210", "123456", null);
 

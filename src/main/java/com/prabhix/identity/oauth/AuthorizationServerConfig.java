@@ -109,7 +109,7 @@ public class AuthorizationServerConfig {
                 // Only for a browser. An API client that lands here should get a 401 rather than a
                 // redirect to a page it cannot render.
                 .defaultAuthenticationEntryPointFor(
-                        new SignInEntryPoint("/login"),
+                        new SignInEntryPoint("/login", clients),
                         new MediaTypeRequestMatcher(org.springframework.http.MediaType.TEXT_HTML)));
 
         return http.build();

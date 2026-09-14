@@ -69,7 +69,7 @@ public class WhatsAppAuthService {
         String normalized = normalize(phone);
         AuthChallenge challenge = challenges.consumeByCode(
                 normalized, code, ChallengePurpose.WHATSAPP_OTP);
-        IdentityUser user = credentials.requireActive(challenge.getUserId());
+        IdentityUser user = credentials.requireSignInAllowed(challenge.getUserId());
         credentials.resetLoginFailures(user);
         return user;
     }

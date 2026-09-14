@@ -4,6 +4,8 @@ import tools.jackson.databind.JsonNode;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.session.SessionService.DeviceContext;
 import com.prabhix.identity.session.SignInService;
 import com.prabhix.identity.user.AuthIdentity;
@@ -28,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.prabhix.identity.event.AuthEventRecorder.details;
+
 /** Sign-in with a Google account. */
 @Slf4j
 @Service
@@ -40,6 +44,7 @@ public class GoogleSsoService {
     private final CredentialService credentials;
     private final SignInService signIn;
     private final IdentityProperties properties;
+    private final AuthEventRecorder events;
     private final RestClient restClient = RestClient.create();
 
     /** Whether a client id is configured, which decides if the login page offers the button. */
@@ -89,6 +94,9 @@ public class GoogleSsoService {
         }
 
         IdentityUser user = linkOrCreate(subject, email, name, tokenInfo);
+        // After the link rather than before: an existing link to a disabled account is still refused,
+        // and a new link to one is rolled back with the rest of the transaction.
+        credentials.ensureSignInAllowed(user);
         credentials.resetLoginFailures(user);
         // Google has already told us the address is verified, so a user who arrives this way should
         // not be asked to prove it again.
@@ -124,6 +132,8 @@ public class GoogleSsoService {
         identity.setRawProfile(toProfileMap(tokenInfo));
         identity.setLastLoginAt(Instant.now());
         identities.save(identity);
+        events.success(AuthEventType.GOOGLE_LINKED, user.getId(), user.getEmail(),
+                details("providerEmail", email, "how", "sign_in"));
         return user;
     }
 

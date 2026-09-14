@@ -41,7 +41,7 @@
             invitation.
         </p>
 
-        <form th:if="${available}" method="post" th:action="@{/signup}" novalidate>
+        <form th:if="${available}" method="post" th:action="@{/signup}" novalidate data-testid="signup-form">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <label for="name">Your name</label>
             <input id="name" name="name" type="text" autocomplete="name"
@@ -61,7 +61,7 @@
                    autocomplete="new-password" required minlength="10">
             <p class="hint">At least 10 characters.</p>
 
-            <button type="submit" class="primary">Create account</button>
+            <button type="submit" class="primary" data-testid="signup-submit">Create account</button>
         </form>
 
         <p class="help">

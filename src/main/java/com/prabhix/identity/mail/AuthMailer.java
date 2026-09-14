@@ -11,12 +11,12 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Sends the four emails that gate account access: magic link, OTP, password reset, email verification.
+ * Sends the emails that gate account access: magic link, OTP, password reset, verification, email change.
  *
  * <p>Sent from here rather than handed to the platform's mail subsystem. Calling the platform would
  * make identity depend on a product that is meant to sit on top of it, and identity has to work
  * before any product does. {@link AuthMailTransport} is the dependency instead — SES in production,
- * SMTP in development — and these four messages are short enough that a template engine would cost
+ * SMTP in development — and these messages are short enough that a template engine would cost
  * more than it saves.
  *
  * <p><b>Failures are thrown, never swallowed.</b> The platform once reported success for mail it had
@@ -72,6 +72,19 @@ public class AuthMailer {
                         + expiryMinutes + " minutes.",
                 button(link, "Confirm my email"),
                 "If you did not create an account, you can ignore this email."));
+    }
+
+    /**
+     * Sent to the <em>new</em> address, because clicking the link is how we know they can read it.
+     * The old address is not copied: whoever can already read that mailbox can already sign in.
+     */
+    public void sendEmailChange(String to, String name, String link, long expiryMinutes) {
+        send(to, "Confirm your new email address", body(
+                "Hello " + escape(name) + ",",
+                "Confirm this address to use it on your Prabhix account. The link works once and expires in "
+                        + expiryMinutes + " minutes.",
+                button(link, "Confirm this address"),
+                "If you did not ask to change your email, you can ignore this. Your account is unchanged."));
     }
 
     private void send(String to, String subject, String html) {

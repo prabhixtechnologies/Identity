@@ -100,8 +100,21 @@ public class IdentityUser extends BaseEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /**
+     * When the owner asked for the account to be deleted. Null means they have not, or they changed
+     * their mind. The account stays usable until something outside this service completes the
+     * deletion after the grace period in {@code docs/ACCOUNT.md}.
+     */
+    @Column(name = "deletion_requested_at")
+    private Instant deletionRequestedAt;
+
     public boolean isLockedNow() {
         return lockedUntil != null && lockedUntil.isAfter(Instant.now());
+    }
+
+    /** False for magic-link / OTP / SSO-only accounts, which have never set a password. */
+    public boolean hasPassword() {
+        return passwordHash != null && !passwordHash.isBlank();
     }
 
     public boolean isEmailVerified() {

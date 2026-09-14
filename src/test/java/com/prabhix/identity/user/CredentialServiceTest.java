@@ -4,6 +4,7 @@ import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.config.TestProperties;
+import com.prabhix.identity.event.AuthEventRecorder;
 import com.prabhix.identity.token.TokenDenyList;
 import com.prabhix.identity.user.IdentityUser.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +43,8 @@ class CredentialServiceTest {
         // quarter-second per hash here, which across these tests is most of the run time.
         PasswordEncoder encoder = new BCryptPasswordEncoder(4);
         IdentityProperties properties = TestProperties.signing("", List.of());
-        service = new CredentialService(users, encoder, denyList, properties);
+        service = new CredentialService(users, encoder, denyList, properties,
+                mock(AuthEventRecorder.class), new LoginFailureWriter(users));
         when(users.save(any(IdentityUser.class))).thenAnswer(call -> call.getArgument(0));
         // Mockito stubs an interface's default methods like any other, which would skip the address
         // normalization they exist to perform. Calling through means the stubs below can be written

@@ -66,7 +66,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/sso/**",
                                 "/api/v1/auth/password/forgot",
                                 "/api/v1/auth/password/reset",
-                                "/api/v1/auth/email/verify/confirm").permitAll()
+                                "/api/v1/auth/email/verify/confirm",
+                                // Token in the body is the proof, same as email verify. The request
+                                // is mailed to the NEW address, so requiring a session would lock
+                                // out the person who started the change on a different device.
+                                "/api/v1/auth/email/change/confirm").permitAll()
                         // The whole point of publishing keys is that anyone can fetch them.
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()

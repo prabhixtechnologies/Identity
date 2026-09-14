@@ -1,10 +1,14 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.user.IdentityUser;
+import com.prabhix.identity.user.IdentityUser.UserStatus;
 import com.prabhix.identity.user.IdentityUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
@@ -55,11 +59,17 @@ public class IdentityTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodin
             return;
         }
 
-        users.findByIdAndDeletedAtIsNull(userId).ifPresent(user -> {
-            context.getClaims().claim("email", user.getEmail());
-            context.getClaims().claim("email_verified", user.isEmailVerified());
-            context.getClaims().claim("name", displayName(user));
-        });
+        IdentityUser user = users.findByIdAndDeletedAtIsNull(userId).orElse(null);
+        // The one place every token the authorization server mints passes through — code exchange
+        // and refresh alike — so it is where a disabled account's hosted session stops producing
+        // tokens. Spring turns this into an OAuth error response rather than a 500.
+        if (user == null || user.getStatus() == UserStatus.DISABLED) {
+            throw new OAuth2AuthenticationException(new OAuth2Error(
+                    OAuth2ErrorCodes.ACCESS_DENIED, "This account cannot sign in", null));
+        }
+        context.getClaims().claim("email", user.getEmail());
+        context.getClaims().claim("email_verified", user.isEmailVerified());
+        context.getClaims().claim("name", displayName(user));
 
         // Only on the access token, and that restriction is load-bearing.
         //

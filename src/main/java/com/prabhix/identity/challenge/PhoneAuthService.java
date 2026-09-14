@@ -80,7 +80,7 @@ public class PhoneAuthService {
         String normalized = normalize(phone);
         AuthChallenge challenge = challenges.consumeByCode(
                 normalized, code, ChallengePurpose.SMS_OTP);
-        IdentityUser user = credentials.requireActive(challenge.getUserId());
+        IdentityUser user = credentials.requireSignInAllowed(challenge.getUserId());
         credentials.resetLoginFailures(user);
         return user;
     }
@@ -145,7 +145,11 @@ public class PhoneAuthService {
         return new AckResponse("Number verified.");
     }
 
-    private String normalize(String phone) {
+    /**
+     * The same normalisation profile edits use, so a number typed on the account page is the same
+     * number SMS sign-in would look up.
+     */
+    public static String normalize(String phone) {
         if (phone == null) {
             throw ApiException.of(ErrorCode.MALFORMED_REQUEST, "Enter a phone number");
         }

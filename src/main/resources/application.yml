@@ -127,6 +127,20 @@ management:
     # the account may send, and whether the from-address is a verified identity.
     mail:
       enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    export:
+      cloudwatch:
+        enabled: ${CLOUDWATCH_METRICS:false}
+        namespace: Prabhix
+        step: 1m
+  cloudwatch:
+    metrics:
+      export:
+        enabled: ${CLOUDWATCH_METRICS:false}
+        namespace: Prabhix
+        step: 1m
   endpoint:
     health:
       probes:
@@ -387,3 +401,22 @@ spring:
       # default, so a blank value fails startup loudly instead of quietly falling back to localhost
       # and presenting as a working cache that happens to have no data.
       url: rediss://${REDIS_CLUSTER_NODES}
+
+---
+# Micrometer → CloudWatch namespace Prabhix. Same effect as CLOUDWATCH_METRICS=true.
+spring:
+  config:
+    activate:
+      on-profile: cloudwatch
+management:
+  metrics:
+    export:
+      cloudwatch:
+        enabled: true
+        namespace: Prabhix
+  cloudwatch:
+    metrics:
+      export:
+        enabled: true
+        namespace: Prabhix
+        step: 1m

@@ -1,9 +1,9 @@
 package com.prabhix.identity.web;
 
-import com.prabhix.identity.common.ApiException;
-import com.prabhix.identity.common.ErrorCode;
-import com.prabhix.identity.common.Secrets;
-import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
+import com.prabhix.identity.event.AuthEventType.Outcome;
+import com.prabhix.identity.security.ServiceTokenAuthenticator;
 import com.prabhix.identity.token.TokenDenyList;
 import com.prabhix.identity.user.IdentityUser;
 import com.prabhix.identity.user.IdentityUserRepository;
@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /**
  * What a product calls to fill in its local mirror of the {@code users} table.
@@ -48,13 +50,14 @@ public class InternalUserController {
 
     private final IdentityUserRepository users;
     private final TokenDenyList denyList;
-    private final IdentityProperties properties;
+    private final ServiceTokenAuthenticator serviceTokens;
+    private final AuthEventRecorder events;
 
     @PostMapping("/users/lookup")
     @Transactional(readOnly = true)
     public UserLookupResponse lookup(HttpServletRequest request,
                                      @RequestBody UserLookupRequest body) {
-        requireServiceToken(request);
+        serviceTokens.requireServiceToken(request);
 
         List<IdentityUser> found = new ArrayList<>();
         if (body.ids() != null && !body.ids().isEmpty()) {
@@ -73,11 +76,18 @@ public class InternalUserController {
      * <p>The break-glass path for "we believe this account is compromised". It has to work even when
      * the attacker is the one holding a valid session, which is why it is a service call rather than
      * something the account owner performs.
+     *
+     * <p>{@code X-Prabhix-Acting-User} is honoured when present but not required here, unlike on
+     * {@code /internal/admin}: this route predates the header and products call it from automated
+     * paths with no person behind them.
      */
     @PostMapping("/users/{id}/revoke-tokens")
     public void revokeTokens(HttpServletRequest request, @PathVariable UUID id) {
-        requireServiceToken(request);
+        serviceTokens.requireServiceToken(request);
         denyList.revokeUser(id);
+        events.record(AuthEventType.TOKENS_REVOKED, Outcome.SUCCESS, id, null,
+                serviceTokens.actingUser(request).orElse(null),
+                details("route", "internal/users/revoke-tokens"));
     }
 
     private MirroredUser toMirror(IdentityUser user) {
@@ -94,22 +104,6 @@ public class InternalUserController {
                 user.getStatus().name(),
                 user.isPlatformAdmin(),
                 user.getUpdatedAt());
-    }
-
-    /**
-     * A blank configured token disables the endpoint rather than accepting a blank header, so a
-     * deployment that forgot to set one fails closed.
-     */
-    private void requireServiceToken(HttpServletRequest request) {
-        String expected = properties.serviceToken();
-        if (expected == null || expected.isBlank()) {
-            throw ApiException.of(ErrorCode.FEATURE_DISABLED,
-                    "This deployment has no service token configured");
-        }
-        String presented = request.getHeader("X-Prabhix-Service-Token");
-        if (presented == null || !Secrets.constantTimeEquals(expected, presented)) {
-            throw ApiException.of(ErrorCode.UNAUTHENTICATED, "That service token is not valid");
-        }
     }
 
     private <T> List<T> capped(List<T> values) {

@@ -118,6 +118,31 @@ class OidcProviderIntegrationTest {
     }
 
     @Test
+    @DisplayName("prompt=none without a session returns login_required to the client, not /login")
+    void promptNoneWithoutSessionReturnsLoginRequired() throws Exception {
+        // Products recover the Identity cookie with a top-level /authorize?prompt=none because the
+        // session cookie is SameSite=Lax and invisible to XHR from another origin. Landing on /login
+        // here would turn that silent check into an interactive one.
+        mvc.perform(get("/oauth2/authorize")
+                        .queryParam("response_type", "code")
+                        .queryParam("client_id", "prabhix-console")
+                        .queryParam("redirect_uri", "http://localhost:5173/auth/callback")
+                        .queryParam("scope", "openid profile email")
+                        .queryParam("prompt", "none")
+                        .queryParam("state", "silent-check")
+                        .queryParam("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+                        .queryParam("code_challenge_method", "S256")
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        org.hamcrest.Matchers.startsWith("http://localhost:5173/auth/callback")))
+                .andExpect(header().string("Location",
+                        org.hamcrest.Matchers.containsString("error=login_required")))
+                .andExpect(header().string("Location",
+                        org.hamcrest.Matchers.containsString("state=silent-check")));
+    }
+
+    @Test
     @DisplayName("/authorize without PKCE is refused for a public client")
     void pkceIsMandatory() throws Exception {
         // Without this, an intercepted redirect is enough to redeem the code, because a public client

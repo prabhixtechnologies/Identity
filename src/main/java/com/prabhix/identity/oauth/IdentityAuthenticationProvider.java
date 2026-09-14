@@ -1,6 +1,8 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.common.ApiException;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.user.CredentialService;
 import com.prabhix.identity.user.IdentityUser;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.stereotype.Component;
+
+import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /**
  * Password authentication for the hosted login page.
@@ -32,6 +36,7 @@ import org.springframework.stereotype.Component;
 public class IdentityAuthenticationProvider implements AuthenticationProvider {
 
     private final CredentialService credentials;
+    private final AuthEventRecorder events;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
@@ -50,6 +55,11 @@ public class IdentityAuthenticationProvider implements AuthenticationProvider {
                 default -> new BadCredentialsException("Those details do not match an account");
             };
         }
+
+        // Failures are recorded inside CredentialService, where the reason is known. Success is
+        // recorded here because the service does not know which surface asked.
+        events.success(AuthEventType.LOGIN_SUCCEEDED, user.getId(), user.getEmail(),
+                details("method", "pwd", "surface", "hosted"));
 
         var authenticated = UsernamePasswordAuthenticationToken.authenticated(
                 user.getId().toString(),

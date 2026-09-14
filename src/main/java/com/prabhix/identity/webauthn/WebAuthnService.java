@@ -3,6 +3,8 @@ package com.prabhix.identity.webauthn;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.user.CredentialService;
 import com.prabhix.identity.user.IdentityUser;
 import com.prabhix.identity.user.IdentityUserRepository;
@@ -52,6 +54,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static com.prabhix.identity.event.AuthEventRecorder.details;
+
 /**
  * Passkey registration and assertion.
  *
@@ -76,6 +80,7 @@ public class WebAuthnService {
     private final WebAuthnCredentialRepository credentials;
     private final IdentityUserRepository users;
     private final CredentialService credentialService;
+    private final AuthEventRecorder events;
     private final ObjectConverter objectConverter = new ObjectConverter();
     private final WebAuthnManager webAuthnManager = WebAuthnManager.createNonStrictWebAuthnManager(objectConverter);
     private final ConcurrentHashMap<UUID, PendingChallenge> registrationChallenges = new ConcurrentHashMap<>();
@@ -158,7 +163,18 @@ public class WebAuthnService {
         row.setAaguid(aaguidUuid(attested.getAaguid()));
         row.setLabel(label == null || label.isBlank() ? "Passkey" : label.trim());
         row.setTransports(transportStrings(registrationData.getTransports()));
-        credentials.save(row);
+        // BS: whether the key is backed up to a cloud keychain. Only meaningful when the
+        // authenticator says it is eligible (BE), so a false from a non-eligible one is left null.
+        var authenticatorData = registrationData.getAttestationObject().getAuthenticatorData();
+        row.setBackedUp(authenticatorData.isFlagBE() ? authenticatorData.isFlagBS() : null);
+        WebAuthnCredential saved = credentials.save(row);
+
+        IdentityUser user = credentialService.requireActive(userId);
+        events.success(AuthEventType.PASSKEY_REGISTERED, userId, user.getEmail(),
+                details("passkeyId", saved.getId().toString(),
+                        "label", saved.getLabel(),
+                        "aaguid", saved.getAaguid() == null ? null : saved.getAaguid().toString(),
+                        "backedUp", saved.getBackedUp()));
     }
 
     /**
@@ -227,18 +243,25 @@ public class WebAuthnService {
                     true));
         } catch (VerificationException ex) {
             log.debug("Passkey assertion rejected: {}", ex.getMessage());
+            events.failure(AuthEventType.LOGIN_FAILED, stored.getUserId(), null,
+                    details("method", "passkey", "reason", "verification_failed",
+                            "passkeyId", stored.getId().toString()));
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS, "Those details do not match an account.");
         }
 
         long newCount = authenticationData.getAuthenticatorData().getSignCount();
         // Zero stays zero for authenticators that do not increment; anything else must not go backwards.
         if (newCount > 0 && newCount <= stored.getSignatureCount()) {
+            events.failure(AuthEventType.LOGIN_FAILED, stored.getUserId(), null,
+                    details("method", "passkey", "reason", "counter_regressed",
+                            "passkeyId", stored.getId().toString()));
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS, "Those details do not match an account.");
         }
         stored.setSignatureCount(newCount);
+        stored.setLastUsedAt(Instant.now());
         credentials.save(stored);
 
-        IdentityUser user = credentialService.requireActive(stored.getUserId());
+        IdentityUser user = credentialService.requireSignInAllowed(stored.getUserId());
         credentialService.resetLoginFailures(user);
         return user;
     }

@@ -4,6 +4,8 @@ import com.prabhix.identity.challenge.AuthChallenge.ChallengePurpose;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.mail.AuthMailer;
 import com.prabhix.identity.session.SessionService.DeviceContext;
 import com.prabhix.identity.session.SignInService;
@@ -18,7 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /** Signing in without a password: magic link and emailed OTP, plus password reset. */
 @Service
@@ -39,6 +44,7 @@ public class PasswordlessService {
     private final SignInService signIn;
     private final AuthMailer mailer;
     private final IdentityProperties properties;
+    private final AuthEventRecorder events;
 
     @Transactional
     public AckResponse requestMagicLink(String email, String ipAddress) {
@@ -66,7 +72,7 @@ public class PasswordlessService {
     @Transactional
     public IdentityUser authenticateByMagicLink(String rawToken) {
         AuthChallenge challenge = challenges.consumeBySecret(rawToken, ChallengePurpose.MAGIC_LINK);
-        IdentityUser user = credentials.requireActive(challenge.getUserId());
+        IdentityUser user = credentials.requireSignInAllowed(challenge.getUserId());
         credentials.resetLoginFailures(user);
         // A magic link proves control of the mailbox, which is exactly what email verification
         // proves, so a first sign-in by link should not then ask the user to confirm the address.
@@ -94,7 +100,7 @@ public class PasswordlessService {
     @Transactional
     public IdentityUser authenticateByOtp(String email, String code) {
         AuthChallenge challenge = challenges.consumeByCode(email, code, ChallengePurpose.EMAIL_OTP);
-        IdentityUser user = credentials.requireActive(challenge.getUserId());
+        IdentityUser user = credentials.requireSignInAllowed(challenge.getUserId());
         credentials.resetLoginFailures(user);
         credentials.markEmailVerified(user.getId());
         return user;
@@ -116,8 +122,30 @@ public class PasswordlessService {
                     user.get().effectiveDisplayName(),
                     consoleLink("/reset-password", raised.rawSecret()),
                     challenges.expiryMinutes());
+            events.success(AuthEventType.PASSWORD_RESET_REQUESTED, user.get().getId(),
+                    user.get().getEmail(), Map.of());
         }
         return GENERIC_ACK;
+    }
+
+    /**
+     * Mails a reset link for an account we already hold, with no generic cover.
+     *
+     * <p>Staff force-reset. The address is known to the operator, so there is nothing to hide by
+     * pretending we might not have sent anything — and the password has just been cleared, so a
+     * silent failure would leave the person with no way in and no email explaining why.
+     */
+    @Transactional
+    public void sendResetLink(IdentityUser user, String ipAddress) {
+        ChallengeService.Raised raised = challenges.raise(
+                ChallengePurpose.PASSWORD_RESET, user.getId(), user.getEmail(), ipAddress);
+        mailer.sendPasswordReset(
+                user.getEmail(),
+                user.effectiveDisplayName(),
+                consoleLink("/reset-password", raised.rawSecret()),
+                challenges.expiryMinutes());
+        events.success(AuthEventType.PASSWORD_RESET_REQUESTED, user.getId(), user.getEmail(),
+                details("how", "admin"));
     }
 
     @Transactional
@@ -126,7 +154,9 @@ public class PasswordlessService {
         if (challenge.getUserId() == null) {
             throw ApiException.of(ErrorCode.TOKEN_INVALID, "That link is not valid");
         }
-        credentials.setPassword(challenge.getUserId(), newPassword);
+        IdentityUser user = credentials.requireActive(challenge.getUserId());
+        credentials.setPassword(user.getId(), newPassword);
+        events.success(AuthEventType.PASSWORD_RESET_COMPLETED, user.getId(), user.getEmail(), Map.of());
         return new AckResponse("Your password has been updated.");
     }
 

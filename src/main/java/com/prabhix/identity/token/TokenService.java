@@ -16,6 +16,7 @@ import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -112,11 +113,24 @@ public class TokenService {
                 UUID.fromString(claims.get(CLAIM_SESSION_ID, String.class)),
                 authenticationMethods(claims));
         Date issuedAt = claims.getIssuedAt();
-        return new VerifiedToken(identity, issuedAt == null ? null : issuedAt.toInstant());
+        return new VerifiedToken(identity, issuedAt == null ? null : issuedAt.toInstant(), audience(claims));
     }
 
-    /** @param issuedAt null for a token that carries no {@code iat}, which the deny list treats as old */
-    public record VerifiedToken(IdentityClaims claims, Instant issuedAt) {
+    /**
+     * @param issuedAt null for a token that carries no {@code iat}, which the deny list treats as old
+     * @param clientId the first {@code aud} entry, which on a token from {@code /oauth2/token} is the
+     *     registered client id. Null for tokens from the direct sign-in endpoints, which carry no
+     *     audience; used for the audit trail and nothing else.
+     */
+    public record VerifiedToken(IdentityClaims claims, Instant issuedAt, String clientId) {
+    }
+
+    private static String audience(Claims claims) {
+        Set<String> audience = claims.getAudience();
+        if (audience == null || audience.isEmpty()) {
+            return null;
+        }
+        return audience.iterator().next();
     }
 
     @SuppressWarnings("unchecked")

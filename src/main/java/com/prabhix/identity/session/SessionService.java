@@ -199,6 +199,22 @@ public class SessionService {
     }
 
     /**
+     * Revokes every live session for a user, and every access token issued for them.
+     *
+     * <p>Staff disable, force-reset and revoke-sessions. Session-scoped deny-list entries cover the
+     * rows we know about; the user-scoped entry is what stops an access token that never had a device
+     * session — an OAuth code flow that never called {@code /api/v1/auth/*} — from outliving the
+     * action that was meant to kill it.
+     */
+    @Transactional
+    public void revokeAll(UUID userId, String reason) {
+        for (DeviceSession session : listActive(userId)) {
+            revoke(session.getId(), reason);
+        }
+        denyList.revokeUser(userId);
+    }
+
+    /**
      * Revokes one session on the user's own instruction, e.g. "sign out my old phone".
      *
      * @throws ApiException with {@code NOT_FOUND} when the session belongs to somebody else, rather

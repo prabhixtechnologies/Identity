@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="color-scheme" content="light dark">
+    <title>Your account · Prabhix</title>
+    <link rel="stylesheet" th:href="@{/assets/prabhix-tokens.css}">
+    <link rel="stylesheet" th:href="@{/assets/login.css}">
+    <link rel="stylesheet" th:href="@{/assets/account.css}">
+</head>
+<!--
+  One account page for every product.
+
+  Products deep-link here with return_to rather than growing a settings screen of their own. Password,
+  passkeys, email and Google live once, on this origin, next to the session cookie that signed the
+  browser in. A settings page inside a product could not reach that cookie, and would be a second
+  place to forget to change when a factor is added.
+-->
+<body class="account-page">
+<a class="skip-link" href="#heading">Skip to content</a>
+<main class="shell account-shell">
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme">Theme</button>
+    <section class="card" aria-labelledby="heading">
+        <div class="brand-lockup">
+            <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="36" height="36" alt="">
+            <p class="brand">Prabhix</p>
+        </div>
+        <h1 id="heading" tabindex="-1">Your account</h1>
+        <p class="sub" th:text="${user.email}">you@example.com</p>
+
+        <p class="alert error" th:if="${error}" th:text="${error}" role="alert"></p>
+        <p class="alert notice" th:if="${notice}" th:text="${notice}" role="status"></p>
+
+        <p class="help account-nav">
+            <a th:if="${returnTo}" th:href="${returnTo}">Back to app</a>
+            <span th:if="${returnTo}"> · </span>
+            <a th:href="@{/logout}">Sign out</a>
+        </p>
+
+        <section class="account-section" aria-labelledby="profile-heading">
+            <h2 id="profile-heading">Profile</h2>
+            <form method="post" th:action="@{/account/profile}" novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label for="name">Name</label>
+                <input id="name" name="name" type="text" autocomplete="name" required maxlength="160"
+                       th:value="${user.fullName}">
+                <label for="displayName">Display name</label>
+                <input id="displayName" name="displayName" type="text" autocomplete="nickname" maxlength="80"
+                       th:value="${user.displayName}">
+                <label for="phone">Phone</label>
+                <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="32"
+                       placeholder="+91 98765 43210" th:value="${user.phone}">
+                <label for="timezone">Timezone</label>
+                <input id="timezone" name="timezone" type="text" maxlength="64" th:value="${user.timezone}">
+                <label for="locale">Locale</label>
+                <input id="locale" name="locale" type="text" maxlength="16" th:value="${user.locale}">
+                <button type="submit" class="primary">Save profile</button>
+            </form>
+
+            <form method="post" th:action="@{/account/email/change}" novalidate class="follow-on">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label for="new-email">Change email</label>
+                <input id="new-email" name="email" type="email" autocomplete="email" required
+                       inputmode="email" spellcheck="false">
+                <p class="hint">We will send a confirmation link to the new address. This one stays
+                    until you click it.</p>
+                <button type="submit" class="secondary">Send confirmation</button>
+            </form>
+        </section>
+
+        <section class="account-section" aria-labelledby="security-heading">
+            <h2 id="security-heading">Security</h2>
+
+            <form method="post" th:action="@{/account/password}" novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label for="currentPassword" th:if="${hasPassword}">Current password</label>
+                <input id="currentPassword" name="currentPassword" type="password"
+                       autocomplete="current-password" th:if="${hasPassword}" required>
+                <label for="newPassword" th:text="${hasPassword} ? 'New password' : 'Set a password'">New password</label>
+                <input id="newPassword" name="newPassword" type="password"
+                       autocomplete="new-password" required minlength="10">
+                <p class="hint">At least 10 characters. You will stay signed in.</p>
+                <button type="submit" class="primary" th:text="${hasPassword} ? 'Change password' : 'Set password'">Change password</button>
+            </form>
+
+            <h3>Passkeys</h3>
+            <p class="hint" th:if="${passkeys.isEmpty()}">No passkeys yet. A passkey signs you in with
+                this device instead of a password.</p>
+            <ul class="cred-list">
+                <li th:each="passkey : ${passkeys}" class="cred-row">
+                    <div>
+                        <p class="cred-label" th:text="${passkey.label}">Passkey</p>
+                        <p class="muted" th:if="${passkey.lastUsedAt != null}">
+                            Last used <span th:text="${#temporals.format(passkey.lastUsedAt, 'd MMM yyyy')}">—</span>
+                        </p>
+                        <p class="muted" th:if="${passkey.lastUsedAt == null}">Never used to sign in</p>
+                    </div>
+                    <form method="post" th:action="@{/account/passkeys/{id}/remove(id=${passkey.id})}">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="danger compact"
+                                th:disabled="${onlyFactorIsPasskey}">Remove</button>
+                    </form>
+                </li>
+            </ul>
+            <p class="hint" th:if="${onlyFactorIsPasskey}">Add a password or connect Google before
+                removing this passkey.</p>
+            <div class="enrol">
+                <label for="passkey-label">Label for a new passkey</label>
+                <input id="passkey-label" type="text" maxlength="120" value="Passkey">
+                <button type="button" class="secondary" id="passkey-enrol" hidden>Add a passkey</button>
+            </div>
+
+            <h3>Sessions</h3>
+            <p class="hint" th:if="${sessions.isEmpty()}">No device sessions. Browser sign-in on this
+                page uses a cookie rather than a listed device.</p>
+            <ul class="cred-list">
+                <li th:each="session : ${sessions}" class="cred-row">
+                    <div>
+                        <p class="cred-label" th:text="${session.deviceName != null ? session.deviceName : session.deviceType}">Web</p>
+                        <p class="muted">
+                            <span th:text="${session.ipAddress}">—</span>
+                            · last seen
+                            <span th:text="${#temporals.format(session.lastSeenAt, 'd MMM yyyy HH:mm')}">—</span>
+                        </p>
+                    </div>
+                    <form method="post" th:action="@{/account/sessions/{id}/revoke(id=${session.id})}">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" class="danger compact">Sign out</button>
+                    </form>
+                </li>
+            </ul>
+        </section>
+
+        <section class="account-section" aria-labelledby="connected-heading">
+            <h2 id="connected-heading">Connected accounts</h2>
+            <div class="cred-row" th:if="${googleLinked}">
+                <div>
+                    <p class="cred-label">Google</p>
+                    <p class="muted" th:text="${google.providerEmail}">connected</p>
+                </div>
+                <form method="post" th:action="@{/account/identities/google/unlink}">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <button type="submit" class="danger compact"
+                            th:disabled="${onlyFactorIsGoogle}">Disconnect</button>
+                </form>
+            </div>
+            <p class="hint" th:if="${onlyFactorIsGoogle}">Add a password or a passkey before
+                disconnecting Google.</p>
+            <p class="muted" th:if="${!googleLinked}">No Google account is connected.
+                Sign in with Google next time to link one.</p>
+        </section>
+
+        <section class="account-section" aria-labelledby="deletion-heading">
+            <h2 id="deletion-heading">Delete account</h2>
+            <p class="hint" th:if="${user.deletionRequestedAt == null}">
+                Starts a 30-day grace period. You can keep using the account and cancel at any time
+                until then. Products are told only after the period ends.
+            </p>
+            <p class="alert notice" th:if="${deletionDueAt != null}">
+                Deletion is scheduled for
+                <span th:text="${#temporals.format(deletionDueAt, 'd MMM yyyy')}">—</span>.
+                You can cancel until then.
+            </p>
+            <form method="post" th:action="@{/account/deletion}" th:if="${user.deletionRequestedAt == null}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="danger">Request deletion</button>
+            </form>
+            <form method="post" th:action="@{/account/deletion/cancel}" th:if="${user.deletionRequestedAt != null}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="secondary">Cancel deletion</button>
+            </form>
+        </section>
+    </section>
+
+    <p class="footprint">Prabhix Technologies</p>
+</main>
+
+<script th:src="@{/assets/login.js}"
+        th:attr="data-csrf-token=${_csrf.token}, data-csrf-header=${_csrf.headerName}"
+        defer></script>
+<script th:src="@{/assets/account.js}"
+        th:attr="data-csrf-token=${_csrf.token}, data-csrf-header=${_csrf.headerName}, data-return-to=${returnTo}"
+        defer></script>
+</body>
+</html>

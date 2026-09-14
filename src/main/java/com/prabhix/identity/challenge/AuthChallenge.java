@@ -83,7 +83,7 @@ public class AuthChallenge extends BaseEntity {
     }
 
     public enum ChallengePurpose {
-        MAGIC_LINK, EMAIL_OTP, SMS_OTP, WHATSAPP_OTP, PASSWORD_RESET, EMAIL_VERIFY;
+        MAGIC_LINK, EMAIL_OTP, SMS_OTP, WHATSAPP_OTP, PASSWORD_RESET, EMAIL_VERIFY, EMAIL_CHANGE;
 
         /**
          * Whether the secret is a short code the person types back, rather than a long token they

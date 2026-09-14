@@ -133,6 +133,37 @@ public final class AuthDtos {
     public record EmailVerifyConfirmRequest(@NotBlank String token) {
     }
 
+    public record PasswordChangeRequest(
+            @NotBlank String currentPassword,
+            @NotBlank @Size(min = 10, max = 128) String newPassword) {
+    }
+
+    /**
+     * Partial. Null leaves the field alone; a blank {@code displayName} or {@code phone} clears it.
+     * {@code name} is {@code fullName} on the wire the console already uses.
+     */
+    public record ProfileUpdateRequest(
+            @Size(max = 160) String name,
+            @Size(max = 80) String displayName,
+            @Size(max = 32) String phone,
+            @Size(max = 64) String timezone,
+            @Size(max = 16) String locale) {
+    }
+
+    public record EmailChangeRequest(@NotBlank @Email String email) {
+    }
+
+    public record EmailChangeConfirmRequest(@NotBlank String token) {
+    }
+
+    public record PasskeyView(
+            UUID id,
+            String label,
+            Instant createdAt,
+            Instant lastUsedAt,
+            Boolean backedUp) {
+    }
+
     public record GoogleSsoRequest(
             @NotBlank String idToken,
             String deviceId,

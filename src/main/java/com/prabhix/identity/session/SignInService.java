@@ -3,6 +3,8 @@ package com.prabhix.identity.session;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.common.Secrets;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.session.SessionService.DeviceContext;
 import com.prabhix.identity.session.SessionService.RotatedToken;
 import com.prabhix.identity.token.IdentityClaims;
@@ -18,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+
+import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /**
  * Turns "this person proved who they are" into tokens.
@@ -35,6 +39,7 @@ public class SignInService {
     private final SessionService sessions;
     private final CredentialService credentials;
     private final TokenService tokens;
+    private final AuthEventRecorder events;
 
     /**
      * Completes a sign-in for a user who has already been authenticated by some means.
@@ -48,8 +53,16 @@ public class SignInService {
     public TokenResponse complete(IdentityUser user,
                                   DeviceContext device,
                                   List<String> authenticationMethods) {
+        credentials.ensureSignInAllowed(user);
         DeviceSession session = sessions.openOrReuse(user.getId(), device);
         String refreshToken = sessions.issueRefreshToken(user.getId(), session.getId());
+        // The one success event for every API sign-in, whichever proof got the caller here. The
+        // hosted page records its own in HostedSignIn, because it never comes through this method.
+        events.success(AuthEventType.LOGIN_SUCCEEDED, user.getId(), user.getEmail(),
+                details("methods", authenticationMethods,
+                        "sessionId", session.getId().toString(),
+                        "surface", "api",
+                        "deviceType", session.getDeviceType().name()));
         return respond(user, session, refreshToken, authenticationMethods);
     }
 
@@ -64,7 +77,9 @@ public class SignInService {
     @Transactional
     public TokenResponse refresh(String rawRefreshToken) {
         RotatedToken rotated = sessions.rotate(rawRefreshToken);
-        IdentityUser user = credentials.requireActive(rotated.userId());
+        // A disabled account's refresh tokens stop working at the next refresh, which is the longest
+        // a disable can take to bite on a native client: one access-token TTL.
+        IdentityUser user = credentials.requireSignInAllowed(rotated.userId());
         // amr describes how the session was originally established, and a refresh proves nothing new
         // about the person, so it is not re-asserted here. A product that needs to know should ask
         // for a fresh sign-in rather than read a claim a refresh could have invented.
@@ -99,7 +114,7 @@ public class SignInService {
             throw noSessionCookie();
         }
 
-        IdentityUser user = credentials.requireActive(session.getUserId());
+        IdentityUser user = credentials.requireSignInAllowed(session.getUserId());
         DeviceSession touched = sessions.touch(session.getId());
         return respond(user, touched, null, List.of());
     }

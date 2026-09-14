@@ -25,6 +25,13 @@ public enum ErrorCode {
     OTP_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS),
     EMAIL_ALREADY_VERIFIED(HttpStatus.CONFLICT),
 
+    /** The current password sent with a self-service change did not match. Not a sign-in failure. */
+    PASSWORD_INCORRECT(HttpStatus.FORBIDDEN),
+    /** Removing this credential would leave the account with no way to sign in. */
+    LAST_CREDENTIAL(HttpStatus.CONFLICT),
+    /** {@code X-Prabhix-Acting-User} missing or not a UUID on a staff route. */
+    ACTING_USER_REQUIRED(HttpStatus.BAD_REQUEST),
+
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST),
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST),
 

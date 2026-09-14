@@ -4,6 +4,8 @@ import com.prabhix.identity.challenge.EmailVerificationService;
 import com.prabhix.identity.challenge.PasswordlessService;
 import com.prabhix.identity.challenge.PhoneAuthService;
 import com.prabhix.identity.challenge.WhatsAppAuthService;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.security.AuthenticatedCaller;
 import com.prabhix.identity.session.DeviceSession;
 import com.prabhix.identity.session.SessionCookieService;
@@ -48,6 +50,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+import static com.prabhix.identity.event.AuthEventRecorder.details;
+
 /**
  * Every authentication flow, on the paths the platform already serves them.
  *
@@ -72,6 +76,7 @@ public class AuthController {
     private final EmailVerificationService emailVerification;
     private final GoogleSsoService googleSso;
     private final SignupService signup;
+    private final AuthEventRecorder events;
 
     /**
      * Signs somebody up, with the workspace that makes the account worth having.
@@ -141,6 +146,8 @@ public class AuthController {
             sessions.revokeRefreshToken(request.refreshToken());
         }
         cookies.clear(response);
+        events.success(AuthEventType.LOGOUT, caller.userId(), null,
+                details("surface", "api", "sessionId", String.valueOf(caller.sessionId())));
     }
 
     @GetMapping("/me")
@@ -171,6 +178,8 @@ public class AuthController {
     public void revokeSession(@AuthenticationPrincipal AuthenticatedCaller caller,
                               @PathVariable UUID id) {
         sessions.revokeOwn(caller.userId(), id);
+        events.success(AuthEventType.SESSION_REVOKED, caller.userId(), null,
+                details("sessionId", id.toString()));
     }
 
     @PostMapping("/magic-link/request")

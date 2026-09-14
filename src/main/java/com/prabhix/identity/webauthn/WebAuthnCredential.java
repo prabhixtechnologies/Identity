@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -47,4 +48,15 @@ public class WebAuthnCredential extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "transports", nullable = false, columnDefinition = "jsonb")
     private List<String> transports = new ArrayList<>();
+
+    /** Stamped on every successful assertion; null for a passkey that has never signed in. */
+    @Column(name = "last_used_at")
+    private Instant lastUsedAt;
+
+    /**
+     * The authenticator's backup-state flag at registration: whether the private key is synced to a
+     * cloud keychain. Null for credentials registered before the column existed.
+     */
+    @Column(name = "backed_up")
+    private Boolean backedUp;
 }
