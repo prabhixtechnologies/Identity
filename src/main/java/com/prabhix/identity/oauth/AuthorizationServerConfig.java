@@ -7,6 +7,7 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.jwks.SigningKeyProvider;
+import com.prabhix.identity.security.FirstPartyHttpOrigins;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -15,6 +16,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
@@ -66,7 +68,8 @@ public class AuthorizationServerConfig {
     @Order(1)
     public SecurityFilterChain authorizationServerChain(HttpSecurity http,
                                                         RegisteredClientRepository clients,
-                                                        OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator)
+                                                        OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator,
+                                                        IdentityProperties properties)
             throws Exception {
         // Spring Security 7 removed the static applyDefaultSecurity, so what it did is written out
         // here. It was three things, and all three still matter:
@@ -103,11 +106,18 @@ public class AuthorizationServerConfig {
                 // Browser SPAs POST here for the code exchange; without CORS the fetch fails before
                 // PKCE even runs. Origins come from CorsConfigurationSource (first-party redirect URIs).
                 .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.ignoringRequestMatchers(endpoints));
+                .csrf(csrf -> csrf.ignoringRequestMatchers(endpoints))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp ->
+                                csp.policyDirectives(FirstPartyHttpOrigins.loginCsp(properties))));
 
         http.exceptionHandling(handling -> handling
-                // Only for a browser. An API client that lands here should get a 401 rather than a
-                // redirect to a page it cannot render.
+                // Default, not only TEXT_HTML: Custom Tabs sometimes send Accept lists that miss
+                // the HTML matcher, and Spring's fallback is 403 — which is what a phone then
+                // shows as a Whitelabel error after typing a password.
+                .authenticationEntryPoint(new SignInEntryPoint("/login", clients))
                 .defaultAuthenticationEntryPointFor(
                         new SignInEntryPoint("/login", clients),
                         new MediaTypeRequestMatcher(org.springframework.http.MediaType.TEXT_HTML)));

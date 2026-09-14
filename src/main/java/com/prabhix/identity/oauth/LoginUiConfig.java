@@ -12,10 +12,9 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 import static com.prabhix.identity.event.AuthEventRecorder.details;
@@ -51,6 +50,12 @@ public class LoginUiConfig {
                 .securityMatcher("/login", "/login/**", "/signup", "/oauth2/consent", "/assets/**",
                         "/logout", "/account", "/account/**")
                 .cors(Customizer.withDefaults())
+                // Default XOR handler + deferred token is a known 403 on the password POST in
+                // Chrome Custom Tabs (AppAuth). Plain attribute handler + reading the token in
+                // the form is enough for a same-origin cookie session.
+                .csrf(csrf -> csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                .exceptionHandling(ex -> ex.accessDeniedHandler((request, response, denied) ->
+                        response.sendRedirect("/login?error&method=choose")))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/login/**", "/signup", "/assets/**", "/logout").permitAll()
                         // Token in the query string is the proof, same as /login/link.
@@ -98,7 +103,8 @@ public class LoginUiConfig {
                 // form-action — unable to submit the form at all. It is set only when absent, so
                 // sending one here is what replaces it.
                 .headers(headers -> headers
-                        .contentSecurityPolicy(csp -> csp.policyDirectives(loginCsp(properties))));
+                        .contentSecurityPolicy(csp ->
+                                csp.policyDirectives(FirstPartyHttpOrigins.loginCsp(properties))));
 
         return http.build();
     }
@@ -127,29 +133,4 @@ public class LoginUiConfig {
         };
     }
 
-    /**
-     * Chrome applies {@code form-action} to the whole redirect chain after a form POST. A successful
-     * sign-in goes Identity → {@code /oauth2/authorize} → the product callback. Listing only
-     * {@code 'self'} makes Chrome block that last hop and misreport it as a block on {@code /login}.
-     */
-    private static String loginCsp(IdentityProperties properties) {
-        List<String> formAction = new ArrayList<>();
-        formAction.add("'self'");
-        formAction.addAll(FirstPartyHttpOrigins.from(properties));
-
-        return String.join("; ",
-                "default-src 'none'",
-                "style-src 'self'",
-                // accounts.google.com for the sign-in button, which is absent from
-                // the page unless a client id is configured. Naming it here costs
-                // nothing when it is not.
-                "script-src 'self' https://accounts.google.com",
-                "frame-src https://accounts.google.com",
-                // 'self' for passkey ceremony fetch(); Google for GIS token exchange.
-                "connect-src 'self' https://accounts.google.com",
-                "img-src 'self' data:",
-                "form-action " + String.join(" ", formAction),
-                "base-uri 'none'",
-                "frame-ancestors 'none'");
-    }
 }

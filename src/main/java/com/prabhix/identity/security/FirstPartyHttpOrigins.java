@@ -21,20 +21,61 @@ public final class FirstPartyHttpOrigins {
 
     public static List<String> from(IdentityProperties properties) {
         Set<String> origins = new LinkedHashSet<>();
-        add(origins, properties.urls().console());
-        add(origins, properties.urls().admin());
+        addHttpOrigin(origins, properties.urls().console());
+        addHttpOrigin(origins, properties.urls().admin());
         for (IdentityProperties.Client client : properties.clients()) {
             for (String uri : client.redirectUris()) {
-                add(origins, uri);
+                addHttpOrigin(origins, uri);
             }
             for (String uri : client.postLogoutRedirectUris()) {
-                add(origins, uri);
+                addHttpOrigin(origins, uri);
             }
         }
         return List.copyOf(origins);
     }
 
-    private static void add(Set<String> origins, String uri) {
+    /**
+     * {@code form-action} sources for hosted login / authorize redirects.
+     *
+     * <p>Chrome applies {@code form-action} to the whole redirect chain after a password POST.
+     * Identity → {@code /oauth2/authorize} → the product callback. HTTP SPA callbacks are origins;
+     * Android AppAuth callbacks are custom schemes ({@code mobistack:}, {@code com.prabhix.admin:}).
+     * Listing only {@code 'self'} (or HTTP origins) makes Chrome block that last hop and surface it
+     * as a failure on {@code /login}.
+     */
+    public static List<String> formActionSources(IdentityProperties properties) {
+        Set<String> sources = new LinkedHashSet<>();
+        sources.add("'self'");
+        sources.addAll(from(properties));
+        if (properties.clients() != null) {
+            for (IdentityProperties.Client client : properties.clients()) {
+                addCustomSchemes(sources, client.redirectUris());
+                addCustomSchemes(sources, client.postLogoutRedirectUris());
+            }
+        }
+        return List.copyOf(sources);
+    }
+
+    /**
+     * Content-Security-Policy for documents and 302s on the login / authorize chains.
+     *
+     * <p>Caddy stamps {@code form-action 'none'} on this hostname when a response has no policy of
+     * its own. Authorize 302s must send this, or Chrome blocks the AppAuth custom-scheme return.
+     */
+    public static String loginCsp(IdentityProperties properties) {
+        return String.join("; ",
+                "default-src 'none'",
+                "style-src 'self'",
+                "script-src 'self' https://accounts.google.com",
+                "frame-src https://accounts.google.com",
+                "connect-src 'self' https://accounts.google.com",
+                "img-src 'self' data:",
+                "form-action " + String.join(" ", formActionSources(properties)),
+                "base-uri 'none'",
+                "frame-ancestors 'none'");
+    }
+
+    private static void addHttpOrigin(Set<String> origins, String uri) {
         if (uri == null || uri.isBlank()) {
             return;
         }
@@ -55,6 +96,27 @@ public final class FirstPartyHttpOrigins {
             origins.add(origin);
         } catch (IllegalArgumentException ignored) {
             // Custom-scheme mobile redirects are not browser origins.
+        }
+    }
+
+    private static void addCustomSchemes(Set<String> sources, List<String> uris) {
+        if (uris == null) {
+            return;
+        }
+        for (String uri : uris) {
+            if (uri == null || uri.isBlank()) {
+                continue;
+            }
+            try {
+                String scheme = URI.create(uri.trim()).getScheme();
+                if (scheme != null
+                        && !scheme.equalsIgnoreCase("http")
+                        && !scheme.equalsIgnoreCase("https")) {
+                    sources.add(scheme + ":");
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Skip unparseable redirect URIs rather than abort CSP construction.
+            }
         }
     }
 }
