@@ -281,9 +281,15 @@ prabhix:
         redirect-uris:
           - com.prabhix.operator:/oauth2redirect
           - com.prabhix.operator.debug:/oauth2redirect
+        post-logout-redirect-uris:
+          - com.prabhix.operator:/oauth2redirect
+          - com.prabhix.operator.debug:/oauth2redirect
       - client-id: prabhix-admin-android
         name: Prabhix Admin for Android
         redirect-uris:
+          - com.prabhix.admin:/oauth2redirect
+          - com.prabhix.admin.debug:/oauth2redirect
+        post-logout-redirect-uris:
           - com.prabhix.admin:/oauth2redirect
           - com.prabhix.admin.debug:/oauth2redirect
       # A separate client from prabhix-mailroom, which is the web app: the redirect URI is a private-use
@@ -294,11 +300,17 @@ prabhix:
         redirect-uris:
           - com.prabhix.mailroom:/oauth2redirect
           - com.prabhix.mailroom.debug:/oauth2redirect
-      # Expo scheme is `mobistack` (mobile/app.json), not the Android applicationId. AppAuth receives
+        post-logout-redirect-uris:
+          - com.prabhix.mailroom:/oauth2redirect
+          - com.prabhix.mailroom.debug:/oauth2redirect
+      # Expo / Flutter scheme is `mobistack` (not the Android applicationId). AppAuth receives
       # the redirect on that custom scheme from a Custom Tab — same shape as the other Android clients.
       - client-id: prabhix-mobistack-android
         name: Prabhix MobiStack for Android
         redirect-uris:
+          - mobistack:/oauth2redirect
+          - mobistack://oauth2redirect
+        post-logout-redirect-uris:
           - mobistack:/oauth2redirect
           - mobistack://oauth2redirect
 
