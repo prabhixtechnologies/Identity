@@ -47,6 +47,7 @@ public class AccountPageController {
     public String page(@RequestParam(name = "return_to", required = false) String returnToParam,
                        @RequestParam(required = false) String saved,
                        @RequestParam(required = false) String error,
+                       @RequestParam(required = false) String view,
                        Authentication authentication,
                        HttpServletRequest request,
                        Model model) {
@@ -74,6 +75,7 @@ public class AccountPageController {
         model.addAttribute("onlyFactorIsPasskey", !snapshot.googleLinked()
                 && !user.hasPassword()
                 && snapshot.passkeys().size() == 1);
+        model.addAttribute("view", resolveView(view, saved, error));
         if (saved != null) {
             model.addAttribute("notice", noticeFor(saved));
         }
@@ -96,12 +98,12 @@ public class AccountPageController {
         } catch (ApiException ex) {
             log.debug("Email-change link rejected: {}", ex.getMessage());
             if (authentication != null && authentication.isAuthenticated()) {
-                return redirectAccount(request, null, ex.getMessage());
+                return redirectAccount(request, null, ex.getMessage(), "profile");
             }
             return "redirect:/login?error=expired";
         }
         if (authentication != null && authentication.isAuthenticated()) {
-            return redirectAccount(request, "email", null);
+            return redirectAccount(request, "email", null, "profile");
         }
         return "redirect:/login";
     }
@@ -118,9 +120,9 @@ public class AccountPageController {
             } else {
                 accounts.setPasswordFromHosted(userId, newPassword);
             }
-            return redirectAccount(request, "password", null);
+            return redirectAccount(request, "password", null, "security");
         } catch (ApiException ex) {
-            return redirectAccount(request, null, ex.getMessage());
+            return redirectAccount(request, null, ex.getMessage(), "security");
         }
     }
 
@@ -135,9 +137,9 @@ public class AccountPageController {
         try {
             accounts.updateProfile(userId(authentication),
                     new ProfileUpdateRequest(name, displayName, phone, timezone, locale));
-            return redirectAccount(request, "profile", null);
+            return redirectAccount(request, "profile", null, "profile");
         } catch (ApiException ex) {
-            return redirectAccount(request, null, ex.getMessage());
+            return redirectAccount(request, null, ex.getMessage(), "profile");
         }
     }
 
@@ -147,9 +149,9 @@ public class AccountPageController {
                                      HttpServletRequest request) {
         try {
             accounts.requestEmailChange(userId(authentication), email, request.getRemoteAddr());
-            return redirectAccount(request, "email-sent", null);
+            return redirectAccount(request, "email-sent", null, "profile");
         } catch (ApiException ex) {
-            return redirectAccount(request, null, ex.getMessage());
+            return redirectAccount(request, null, ex.getMessage(), "profile");
         }
     }
 
@@ -159,9 +161,9 @@ public class AccountPageController {
                                 HttpServletRequest request) {
         try {
             accounts.removePasskey(userId(authentication), id);
-            return redirectAccount(request, "passkey", null);
+            return redirectAccount(request, "passkey", null, "security");
         } catch (ApiException ex) {
-            return redirectAccount(request, null, ex.getMessage());
+            return redirectAccount(request, null, ex.getMessage(), "security");
         }
     }
 
@@ -169,9 +171,9 @@ public class AccountPageController {
     public String unlinkGoogle(Authentication authentication, HttpServletRequest request) {
         try {
             accounts.unlinkGoogle(userId(authentication));
-            return redirectAccount(request, "google", null);
+            return redirectAccount(request, "google", null, "connected");
         } catch (ApiException ex) {
-            return redirectAccount(request, null, ex.getMessage());
+            return redirectAccount(request, null, ex.getMessage(), "connected");
         }
     }
 
@@ -181,22 +183,22 @@ public class AccountPageController {
                                 HttpServletRequest request) {
         try {
             sessions.revokeOwn(userId(authentication), id);
-            return redirectAccount(request, "session", null);
+            return redirectAccount(request, "session", null, "sessions");
         } catch (ApiException ex) {
-            return redirectAccount(request, null, ex.getMessage());
+            return redirectAccount(request, null, ex.getMessage(), "sessions");
         }
     }
 
     @PostMapping("/account/deletion")
     public String requestDeletion(Authentication authentication, HttpServletRequest request) {
         accounts.requestDeletion(userId(authentication));
-        return redirectAccount(request, "deletion", null);
+        return redirectAccount(request, "deletion", null, "deletion");
     }
 
     @PostMapping("/account/deletion/cancel")
     public String cancelDeletion(Authentication authentication, HttpServletRequest request) {
         accounts.cancelDeletion(userId(authentication));
-        return redirectAccount(request, "deletion-cancelled", null);
+        return redirectAccount(request, "deletion-cancelled", null, "deletion");
     }
 
     private static UUID userId(Authentication authentication) {
@@ -215,12 +217,17 @@ public class AccountPageController {
         return stored instanceof String url ? url : null;
     }
 
-    private static String redirectAccount(HttpServletRequest request, String saved, String error) {
+    private static String redirectAccount(HttpServletRequest request, String saved, String error, String view) {
         StringBuilder target = new StringBuilder("/account");
         boolean first = true;
         String returnTo = currentReturnTo(request.getSession(false));
         if (returnTo != null) {
             target.append(first ? '?' : '&').append("return_to=").append(urlEncode(returnTo));
+            first = false;
+        }
+        String pane = view != null ? view : viewForNotice(saved);
+        if (pane != null) {
+            target.append(first ? '?' : '&').append("view=").append(pane);
             first = false;
         }
         if (saved != null) {
@@ -231,6 +238,51 @@ public class AccountPageController {
             target.append(first ? '?' : '&').append("error=").append(urlEncode(error));
         }
         return "redirect:" + target;
+    }
+
+    static String resolveView(String view, String saved, String error) {
+        String fromParam = canonicalView(view);
+        if (fromParam != null) {
+            return fromParam;
+        }
+        String fromSaved = viewForNotice(saved);
+        if (fromSaved != null) {
+            return fromSaved;
+        }
+        if (error != null) {
+            String lower = error.toLowerCase();
+            if (lower.contains("password") || lower.contains("passkey")) {
+                return "security";
+            }
+            if (lower.contains("google")) {
+                return "connected";
+            }
+        }
+        return "profile";
+    }
+
+    private static String canonicalView(String view) {
+        if (view == null) {
+            return null;
+        }
+        return switch (view) {
+            case "profile", "security", "sessions", "connected", "deletion" -> view;
+            default -> null;
+        };
+    }
+
+    private static String viewForNotice(String saved) {
+        if (saved == null) {
+            return null;
+        }
+        return switch (saved) {
+            case "password", "passkey", "passkey-added" -> "security";
+            case "session" -> "sessions";
+            case "google" -> "connected";
+            case "deletion", "deletion-cancelled" -> "deletion";
+            case "profile", "email", "email-sent" -> "profile";
+            default -> null;
+        };
     }
 
     private static String urlEncode(String value) {

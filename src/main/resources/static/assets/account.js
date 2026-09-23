@@ -19,7 +19,7 @@
             if (err && err.name === "NotAllowedError") {
                 return;
             }
-            window.location.href = "/account?error=" + encodeURIComponent(
+            window.location.href = "/account?view=security&error=" + encodeURIComponent(
                 "That passkey could not be added. Try again.")
                 + (returnTo ? "&return_to=" + encodeURIComponent(returnTo) : "");
         });
@@ -126,7 +126,7 @@
             if (!res.ok) {
                 throw new Error("finish failed");
             }
-            window.location.href = "/account?saved=passkey-added"
+            window.location.href = "/account?view=security&saved=passkey-added"
                 + (returnTo ? "&return_to=" + encodeURIComponent(returnTo) : "");
         });
     }

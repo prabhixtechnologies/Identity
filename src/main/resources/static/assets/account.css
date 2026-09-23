@@ -1,37 +1,213 @@
-/* Hosted /account. Shares login.css tokens; this file is the wider layout and lists. */
+/* Hosted /account — a workspace, not a stretched login card. */
 
 .account-page {
-    place-items: start center;
+    display: block;
+    place-items: unset;
+    padding: 0;
+    min-height: 100dvh;
+    background: var(--px-bg);
+    animation: none;
 }
 
-.account-shell {
-    max-width: 36rem;
-    margin: 1.5rem auto 2.5rem;
+.account-page::before,
+.account-page::after {
+    display: none;
 }
 
-.account-nav {
-    margin: 0 0 1.5rem;
+.ac-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 56px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--px-border);
+    background: var(--px-surface);
 }
 
-.account-section {
-    margin-top: 1.75rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--px-border);
+.ac-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.account-section h2 {
-    margin: 0 0 1rem;
+.ac-brand .brand-mark {
+    width: 32px;
+    height: 32px;
+}
+
+.ac-brand__name {
+    margin: 0;
     font-family: var(--px-font-display);
-    font-size: 1.05rem;
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.ac-brand__tag {
+    margin: 0;
+    color: var(--px-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+.ac-top__tools {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.account-page .theme-toggle {
+    position: static;
+    backdrop-filter: none;
+}
+
+.ac-text-link {
+    color: var(--px-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.ac-text-link:hover {
+    color: var(--px-accent);
+}
+
+.ac-floor {
+    display: flex;
+    min-height: calc(100dvh - 56px);
+}
+
+.ac-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 220px;
+    flex-shrink: 0;
+    padding: 20px 12px;
+    border-right: 1px solid var(--px-border);
+    background: color-mix(in srgb, var(--px-surface) 70%, var(--px-bg));
+}
+
+.ac-who {
+    margin: 0 10px 14px;
+    color: var(--px-muted);
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ac-nav a {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--px-muted);
+    font-size: 0.92rem;
+    font-weight: 550;
+    text-decoration: none;
+    position: relative;
+}
+
+.ac-nav a:hover {
+    color: var(--px-ink);
+    background: color-mix(in srgb, var(--px-ink) 4%, transparent);
+}
+
+.ac-nav a.is-on {
+    color: var(--px-ink);
+    font-weight: 650;
+    background: color-mix(in srgb, var(--px-accent) 10%, transparent);
+}
+
+.ac-nav a.is-on::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 99px;
+    background: var(--px-accent);
+}
+
+.ac-nav__danger {
+    margin-top: 16px;
+    padding-top: 8px;
+}
+
+.ac-desk {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 32px 48px;
+    max-width: 44rem;
+}
+
+.ac-pane-head {
+    margin: 0 0 20px;
+}
+
+.ac-pane-head h1 {
+    margin: 0;
+    font-size: 1.55rem;
+}
+
+.ac-pane-head p {
+    margin: 6px 0 0;
+    color: var(--px-muted);
+    font-size: 0.92rem;
+}
+
+.ac-panel {
+    margin: 0 0 20px;
+    padding: 20px 22px 22px;
+    border: 1px solid var(--px-border);
+    border-radius: 12px;
+    background: var(--px-surface);
+}
+
+.ac-panel h2 {
+    margin: 0 0 14px;
+    font-family: var(--px-font-display);
+    font-size: 1.02rem;
     font-weight: 650;
     letter-spacing: -0.02em;
 }
 
-.account-section h3 {
-    margin: 1.35rem 0 0.65rem;
-    font-size: 0.88rem;
-    font-weight: 650;
-    color: var(--px-muted);
+.ac-panel--danger {
+    border-color: color-mix(in srgb, var(--px-danger) 28%, var(--px-border));
+}
+
+.ac-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+}
+
+.ac-grid__full {
+    grid-column: 1 / -1;
+}
+
+.ac-current {
+    margin: 0 0 12px;
+}
+
+.account-page button.primary,
+.account-page button.secondary,
+.account-page button.danger:not(.compact) {
+    width: auto;
+    min-width: 9.5rem;
+}
+
+.account-page button.primary {
+    background: var(--px-accent);
+    box-shadow: none;
+}
+
+.account-page button.primary:hover {
+    transform: none;
+    filter: brightness(1.06);
 }
 
 .cred-list {
@@ -47,10 +223,14 @@
     justify-content: space-between;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem 0.85rem;
-    border: 1px solid var(--px-border);
-    border-radius: calc(var(--px-radius) - 0.1rem);
-    background: color-mix(in srgb, var(--px-bg) 65%, transparent);
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--px-border);
+    background: none;
+    border-radius: 0;
+}
+
+.cred-row:last-child {
+    border-bottom: 0;
 }
 
 .cred-row form {
@@ -92,5 +272,57 @@ button:disabled {
 }
 
 .enrol {
-    margin: 0 0 0.5rem;
+    margin: 0.5rem 0 0;
+}
+
+.enrol input {
+    max-width: 20rem;
+}
+
+@media (max-width: 800px) {
+    .ac-floor {
+        flex-direction: column;
+    }
+
+    .ac-nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        width: 100%;
+        overflow-x: auto;
+        padding: 10px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--px-border);
+        gap: 4px;
+    }
+
+    .ac-who {
+        display: none;
+    }
+
+    .ac-nav a {
+        white-space: nowrap;
+        padding: 8px 12px;
+    }
+
+    .ac-nav a.is-on::before {
+        top: auto;
+        bottom: 0;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        height: 2px;
+    }
+
+    .ac-nav__danger {
+        margin-top: 0;
+        padding-top: 0;
+    }
+
+    .ac-desk {
+        padding: 20px 16px 40px;
+    }
+
+    .ac-grid {
+        grid-template-columns: 1fr;
+    }
 }
