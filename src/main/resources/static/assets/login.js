@@ -31,7 +31,6 @@
     function applyTheme(theme) {
         root.setAttribute("data-theme", theme);
         if (themeToggle) {
-            themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
             themeToggle.setAttribute("aria-label",
                 theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
         }

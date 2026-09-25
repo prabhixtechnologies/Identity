@@ -24,8 +24,32 @@
 -->
 <body>
 <a class="skip-link" href="#heading">Skip to content</a>
-<main class="shell">
-    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme">Theme</button>
+<button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme">
+    <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+    </svg>
+    <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.25" stroke="currentColor" stroke-width="1.75"/>
+        <path d="M12 3v1.8M12 19.2V21M4.9 4.9l1.3 1.3M17.8 17.8l1.3 1.3M3 12h1.8M19.2 12H21M4.9 19.1l1.3-1.3M17.8 6.2l1.3-1.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+    </svg>
+</button>
+<div class="stage">
+    <aside class="stage-brand" aria-hidden="true">
+        <div class="brand-lockup">
+            <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="40" height="40" alt="">
+            <p class="brand">Prabhix</p>
+        </div>
+        <div class="stage-copy">
+            <p class="stage-headline">One account.<br>Every product.</p>
+            <ul class="stage-products">
+                <li><span class="stage-product">OneOps</span><span class="stage-role">Operations</span></li>
+                <li><span class="stage-product">MobiStack</span><span class="stage-role">Repair shops</span></li>
+                <li><span class="stage-product">Mailroom</span><span class="stage-role">Mail</span></li>
+            </ul>
+        </div>
+        <p class="stage-foot">Prabhix Technologies</p>
+    </aside>
+    <main class="shell">
     <section class="card" aria-labelledby="heading">
         <div class="brand-lockup">
             <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="36" height="36" alt="">
@@ -70,7 +94,8 @@
     </section>
 
     <p class="footprint">Prabhix Technologies</p>
-</main>
+    </main>
+</div>
 
 <script th:src="@{/assets/login.js}"
         th:attr="data-csrf-token=${_csrf.token}, data-csrf-header=${_csrf.headerName}"
