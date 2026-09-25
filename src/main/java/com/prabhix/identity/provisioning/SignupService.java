@@ -43,13 +43,18 @@ public class SignupService {
     /**
      * Creates the account and its organization, or neither.
      *
-     * @param organizationName what to call the workspace. Required: this is the only signup path, and
-     *     an account with no organization is the state this method exists to prevent.
+     * @param organizationName what to call the OneOps workspace. Blank skips that call. MobiStack
+     *     uses the blank form: the shop is created in MobiStack after the account exists.
      */
     public IdentityUser signUp(String email, String password, String fullName, String organizationName) {
         IdentityUser user = credentials.create(email, password, fullName);
+        // MobiStack creates the shop after this account exists. A workspace name here would open an
+        // OneOps organization, which is neither that shop nor the fitment group.
+        if (organizationName == null || organizationName.isBlank()) {
+            return user;
+        }
         try {
-            platform.createOrganization(user, organizationName);
+            platform.createOrganization(user, organizationName.trim());
         } catch (RuntimeException ex) {
             withdraw(user);
             throw ex;

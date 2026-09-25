@@ -71,10 +71,12 @@
             <input id="name" name="name" type="text" autocomplete="name"
                    required autofocus maxlength="160" th:value="${name}">
 
-            <label for="organization">Workspace name</label>
-            <input id="organization" name="organization" type="text" autocomplete="organization"
-                   required maxlength="200" th:value="${organization}">
-            <p class="hint">Your company or team. You can rename it later.</p>
+            <div th:unless="${shopLater}">
+                <label for="organization">Workspace name</label>
+                <input id="organization" name="organization" type="text" autocomplete="organization"
+                       required maxlength="200" th:value="${organization}">
+                <p class="hint">Your company or team. You can rename it later.</p>
+            </div>
 
             <label for="email">Email address</label>
             <input id="email" name="email" type="email" autocomplete="username"

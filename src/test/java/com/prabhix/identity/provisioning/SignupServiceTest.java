@@ -62,6 +62,14 @@ class SignupServiceTest {
     }
 
     @Test
+    void accountWithoutAWorkspaceSkipsThePlatform() {
+        assertSame(account, signup.signUp("someone@example.com", "long-enough-password", "Someone", " "));
+
+        verify(credentials).create("someone@example.com", "long-enough-password", "Someone");
+        verify(platform, never()).createOrganization(any(), any());
+    }
+
+    @Test
     void createsTheAccountAndItsWorkspace() {
         when(platform.createOrganization(account, "Acme")).thenReturn(UUID.randomUUID());
 

@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * Creating an account, on the same origin as signing into one.
@@ -33,20 +36,29 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class SignupController {
 
+    private static final Set<String> SHOP_LATER_CLIENTS = Set.of(
+            "prabhix-mobistack", "prabhix-mobistack-android");
+
     private final SignupService signup;
     private final HostedSignIn hostedSignIn;
+    private final HttpSessionRequestCache savedRequests = new HttpSessionRequestCache();
 
     @GetMapping("/signup")
     public String form(@RequestParam(required = false) String email,
                        @RequestParam(required = false) String name,
                        @RequestParam(required = false) String organization,
+                       HttpServletRequest request,
+                       HttpServletResponse response,
                        Model model) {
+        boolean shopLater = shopLater(request, response);
         model.addAttribute("email", email != null ? email : "");
         model.addAttribute("name", name != null ? name : "");
         model.addAttribute("organization", organization != null ? organization : "");
+        model.addAttribute("shopLater", shopLater);
         // A deployment with no platform to provision against cannot honestly offer signup: it would
         // take a password, create an account, and then withdraw it. The page says so instead.
-        model.addAttribute("available", signup.available());
+        // MobiStack does not need that platform call, so its signup stays open without it.
+        model.addAttribute("available", shopLater || signup.available());
         return "signup";
     }
 
@@ -61,12 +73,22 @@ public class SignupController {
     public String create(@RequestParam String email,
                          @RequestParam String password,
                          @RequestParam String name,
-                         @RequestParam String organization,
+                         @RequestParam(required = false) String organization,
                          HttpServletRequest request,
                          HttpServletResponse response,
                          Model model) throws IOException, ServletException {
+        boolean shopLater = shopLater(request, response);
+        if (!shopLater && (organization == null || organization.isBlank())) {
+            model.addAttribute("error", "A workspace name is required.");
+            model.addAttribute("email", email);
+            model.addAttribute("name", name);
+            model.addAttribute("organization", "");
+            model.addAttribute("shopLater", false);
+            model.addAttribute("available", signup.available());
+            return "signup";
+        }
         try {
-            IdentityUser user = signup.signUp(email, password, name, organization);
+            IdentityUser user = signup.signUp(email, password, name, shopLater ? null : organization);
             // A password was typed, so that is the factor — the same one form login would record.
             hostedSignIn.completeAndRedirect(user, FactorGrantedAuthority.PASSWORD_AUTHORITY,
                     request, response);
@@ -82,8 +104,27 @@ public class SignupController {
             model.addAttribute("email", email);
             model.addAttribute("name", name);
             model.addAttribute("organization", organization);
-            model.addAttribute("available", signup.available());
+            model.addAttribute("shopLater", shopLater);
+            model.addAttribute("available", shopLater || signup.available());
             return "signup";
         }
+    }
+
+    /** MobiStack's authorize request is what was saved before this page opened. */
+    private boolean shopLater(HttpServletRequest request, HttpServletResponse response) {
+        SavedRequest saved = savedRequests.getRequest(request, response);
+        if (saved == null) {
+            return false;
+        }
+        String[] clientIds = saved.getParameterValues("client_id");
+        if (clientIds == null) {
+            return false;
+        }
+        for (String clientId : clientIds) {
+            if (SHOP_LATER_CLIENTS.contains(clientId)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
