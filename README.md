@@ -5,7 +5,7 @@ token that says so. It deliberately does not answer *what may they do*, which ea
 from its own database.
 
 Served at `id.prabhixtechnologies.com`, and reached through the shared API origin at
-`api.prabhixtechnologies.com/api/v1/auth/*`.
+`api.prabhixtechnologies.com/api/v1/identity/auth/*`.
 
 ## Why it is separate, and why authorization is not
 
@@ -42,23 +42,23 @@ those calls the product's own `/me`, which is the only thing that can answer the
 
 ## Endpoints
 
-Paths are unchanged from the platform's `AuthController`, so Caddy can route `/api/v1/auth/*` here
+Paths are unchanged from the platform's `AuthController`, so Caddy can route `/api/v1/identity/auth/*` here
 without any client learning a new URL.
 
 | | |
 | --- | --- |
-| `POST /api/v1/auth/register` | Create an account. No `organizationName`: creating an organization is a platform action, and this service does not know what one is. |
-| `POST /api/v1/auth/login` | Email and password. |
-| `POST /api/v1/auth/refresh` | Rotate a refresh token. |
-| `POST /api/v1/auth/session/token` | Exchange the shared browser cookie. Nothing is rotated, so two hostnames can call it at the same instant. |
-| `POST /api/v1/auth/logout` | Revoke this session. |
-| `GET /api/v1/auth/me` | Who you are. Not what you may do. |
-| `GET /api/v1/auth/sessions`, `DELETE /api/v1/auth/sessions/{id}` | List and revoke your own devices. |
-| `POST /api/v1/auth/magic-link/{request,verify}` | Sign in by emailed link. |
-| `POST /api/v1/auth/otp/{request,verify}` | Sign in by emailed code. |
-| `POST /api/v1/auth/password/{forgot,reset}` | Password reset. |
-| `POST /api/v1/auth/email/verify/{request,confirm}` | Confirm an address. |
-| `POST /api/v1/auth/sso/google` | Google sign-in. |
+| `POST /api/v1/identity/auth/register` | Create an account. No `organizationName`: creating an organization is a platform action, and this service does not know what one is. |
+| `POST /api/v1/identity/auth/login` | Email and password. |
+| `POST /api/v1/identity/auth/refresh` | Rotate a refresh token. |
+| `POST /api/v1/identity/auth/session/token` | Exchange the shared browser cookie. Nothing is rotated, so two hostnames can call it at the same instant. |
+| `POST /api/v1/identity/auth/logout` | Revoke this session. |
+| `GET /api/v1/identity/auth/me` | Who you are. Not what you may do. |
+| `GET /api/v1/identity/auth/sessions`, `DELETE /api/v1/identity/auth/sessions/{id}` | List and revoke your own devices. |
+| `POST /api/v1/identity/auth/magic-link/{request,verify}` | Sign in by emailed link. |
+| `POST /api/v1/identity/auth/otp/{request,verify}` | Sign in by emailed code. |
+| `POST /api/v1/identity/auth/password/{forgot,reset}` | Password reset. |
+| `POST /api/v1/identity/auth/email/verify/{request,confirm}` | Confirm an address. |
+| `POST /api/v1/identity/auth/sso/google` | Google sign-in. |
 | `POST /internal/users/lookup` | For a product filling its local `users` mirror. Guarded by `X-Prabhix-Service-Token`, and not routed publicly. |
 | `POST /internal/users/{id}/revoke-tokens` | Break-glass revocation of every token for one account. |
 

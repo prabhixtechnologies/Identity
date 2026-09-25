@@ -19,11 +19,11 @@ to `/login` and resumes here afterwards.
 
 ## Grace period
 
-`POST /api/v1/auth/deletion` (and the button on the page) sets `users.deletion_requested_at`. The
+`POST /api/v1/identity/auth/deletion` (and the button on the page) sets `users.deletion_requested_at`. The
 account stays usable. Nothing in this service completes the deletion: an operator, or a job that
 does not yet exist, is what actually removes the row, and only after **30 days**.
 
-`DELETE /api/v1/auth/deletion` clears the timestamp. Cancelling on day 29 is the same as never
+`DELETE /api/v1/identity/auth/deletion` clears the timestamp. Cancelling on day 29 is the same as never
 having asked.
 
 The point of the delay is the person who clicked the wrong button, and the product that still has
@@ -36,21 +36,21 @@ identity.
 
 | | |
 | --- | --- |
-| `POST /api/v1/auth/password/change` | `{ currentPassword, newPassword }`. Stays signed in: this is not a reset. |
-| `PUT /api/v1/auth/profile` | Partial: `name`, `displayName`, `phone`, `timezone`, `locale`. |
-| `POST /api/v1/auth/email/change/request` | Sends a link to the **new** address. |
-| `POST /api/v1/auth/email/change/confirm` | Public. `{ token }` from the link. Also `GET /account/email/confirm?token=`. |
-| `GET /api/v1/webauthn/credentials` | Passkeys: `id`, `label`, `createdAt`, `lastUsedAt`, `backedUp`. |
-| `DELETE /api/v1/webauthn/credentials/{id}` | Refused with `LAST_CREDENTIAL` if it is the only remaining factor. |
-| `DELETE /api/v1/auth/identities/google` | Same last-factor rule. |
-| `POST /api/v1/auth/deletion` | Sets the timestamp. Does not sign the person out. |
-| `DELETE /api/v1/auth/deletion` | Clears it. |
+| `POST /api/v1/identity/auth/password/change` | `{ currentPassword, newPassword }`. Stays signed in: this is not a reset. |
+| `PUT /api/v1/identity/auth/profile` | Partial: `name`, `displayName`, `phone`, `timezone`, `locale`. |
+| `POST /api/v1/identity/auth/email/change/request` | Sends a link to the **new** address. |
+| `POST /api/v1/identity/auth/email/change/confirm` | Public. `{ token }` from the link. Also `GET /account/email/confirm?token=`. |
+| `GET /api/v1/identity/webauthn/credentials` | Passkeys: `id`, `label`, `createdAt`, `lastUsedAt`, `backedUp`. |
+| `DELETE /api/v1/identity/webauthn/credentials/{id}` | Refused with `LAST_CREDENTIAL` if it is the only remaining factor. |
+| `DELETE /api/v1/identity/auth/identities/google` | Same last-factor rule. |
+| `POST /api/v1/identity/auth/deletion` | Sets the timestamp. Does not sign the person out. |
+| `DELETE /api/v1/identity/auth/deletion` | Clears it. |
 
 A factor here is a password, a Google link, or a passkey. Magic-link and OTP are not counted: they
 are always available for an address, so treating them as remaining would let somebody delete the
 last thing they registered.
 
-Enrol a passkey with the existing `POST /api/v1/webauthn/register/{options,finish}` (bearer) or
+Enrol a passkey with the existing `POST /api/v1/identity/webauthn/register/{options,finish}` (bearer) or
 `POST /account/passkey/{options,finish}` (hosted session).
 
 ## Admin

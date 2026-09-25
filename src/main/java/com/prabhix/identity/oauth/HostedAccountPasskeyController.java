@@ -19,7 +19,7 @@ import java.util.UUID;
 /**
  * Passkey enrolment from the hosted account page.
  *
- * <p>Same ceremony as {@code /api/v1/webauthn/register}, on this chain so the login session and the
+ * <p>Same ceremony as {@code /api/v1/identity/webauthn/register}, on this chain so the login session and the
  * CSRF token apply. The API chain is stateless and would not see the cookie that got the browser
  * here.
  */

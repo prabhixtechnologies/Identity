@@ -176,7 +176,7 @@ public class PasswordlessService {
      *
      * <p>A magic link has to land wherever the challenge it names can be found, and challenges are in
      * this service's database. Pointing it at the console meant the console posting the token to
-     * {@code /api/v1/auth/magic-link/verify}, which the gateway routes by {@code AUTH_UPSTREAM} — so
+     * {@code /api/v1/identity/auth/magic-link/verify}, which the gateway routes by {@code AUTH_UPSTREAM} — so
      * before that cutover the token was looked for in the platform's database and never found. The
      * link was dead for exactly as long as the two halves disagreed.
      *

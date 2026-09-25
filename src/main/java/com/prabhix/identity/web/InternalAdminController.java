@@ -13,7 +13,6 @@ import com.prabhix.identity.web.AdminDtos.UserSummary;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,7 +31,7 @@ import java.util.UUID;
  * is only slightly more useful than none, and the client always sends the header anyway.
  */
 @RestController
-@RequestMapping("/internal/admin")
+@RequestMapping("/internal/identity/admin")
 @RequiredArgsConstructor
 public class InternalAdminController {
 
@@ -49,43 +48,43 @@ public class InternalAdminController {
         return admin.searchUsers(q, status, cursor, limit);
     }
 
-    @GetMapping("/users/{id}")
-    public UserDetail getUser(HttpServletRequest request, @PathVariable UUID id) {
+    @GetMapping(value = "/users", params = "id")
+    public UserDetail getUser(HttpServletRequest request, @RequestParam UUID id) {
         serviceTokens.requireActor(request);
         return admin.getUser(id);
     }
 
-    @PostMapping("/users/{id}/disable")
+    @PostMapping("/users/disable")
     public void disable(HttpServletRequest request,
-                        @PathVariable UUID id,
+                        @RequestParam UUID id,
                         @RequestBody(required = false) UserAction body) {
         admin.disable(id, actor(request, body));
     }
 
-    @PostMapping("/users/{id}/enable")
+    @PostMapping("/users/enable")
     public void enable(HttpServletRequest request,
-                       @PathVariable UUID id,
+                       @RequestParam UUID id,
                        @RequestBody(required = false) UserAction body) {
         admin.enable(id, actor(request, body));
     }
 
-    @PostMapping("/users/{id}/unlock")
+    @PostMapping("/users/unlock")
     public void unlock(HttpServletRequest request,
-                       @PathVariable UUID id,
+                       @RequestParam UUID id,
                        @RequestBody(required = false) UserAction body) {
         admin.unlock(id, actor(request, body));
     }
 
-    @PostMapping("/users/{id}/force-reset")
+    @PostMapping("/users/force-reset")
     public void forceReset(HttpServletRequest request,
-                           @PathVariable UUID id,
+                           @RequestParam UUID id,
                            @RequestBody(required = false) UserAction body) {
         admin.forceReset(id, actor(request, body));
     }
 
-    @PostMapping("/users/{id}/revoke-sessions")
+    @PostMapping("/users/revoke-sessions")
     public void revokeSessions(HttpServletRequest request,
-                               @PathVariable UUID id,
+                               @RequestParam UUID id,
                                @RequestBody(required = false) UserAction body) {
         admin.revokeSessions(id, actor(request, body));
     }

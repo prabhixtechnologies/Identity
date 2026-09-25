@@ -151,7 +151,7 @@
                             </p>
                             <p class="muted" th:if="${passkey.lastUsedAt == null}">Never used to sign in</p>
                         </div>
-                        <form method="post" th:action="@{/account/passkeys/{id}/remove(id=${passkey.id})}">
+                        <form method="post" th:action="@{/account/passkeys/remove(id=${passkey.id})}">
                             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                             <button type="submit" class="danger compact"
                                     th:disabled="${onlyFactorIsPasskey}">Remove</button>
@@ -184,7 +184,7 @@
                                 <span th:text="${#temporals.format(device.lastSeenAt, 'd MMM yyyy HH:mm')}">—</span>
                             </p>
                         </div>
-                        <form method="post" th:action="@{/account/sessions/{id}/revoke(id=${device.id})}">
+                        <form method="post" th:action="@{/account/sessions/revoke(id=${device.id})}">
                             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                             <button type="submit" class="danger compact">Sign out</button>
                         </form>

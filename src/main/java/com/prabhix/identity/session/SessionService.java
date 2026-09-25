@@ -203,7 +203,7 @@ public class SessionService {
      *
      * <p>Staff disable, force-reset and revoke-sessions. Session-scoped deny-list entries cover the
      * rows we know about; the user-scoped entry is what stops an access token that never had a device
-     * session — an OAuth code flow that never called {@code /api/v1/auth/*} — from outliving the
+     * session — an OAuth code flow that never called {@code /api/v1/identity/auth/*} — from outliving the
      * action that was meant to kill it.
      */
     @Transactional

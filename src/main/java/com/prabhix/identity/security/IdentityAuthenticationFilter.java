@@ -30,7 +30,7 @@ import java.util.UUID;
 
 /**
  * Authenticates the endpoints here that need a signed-in caller: {@code /auth/me},
- * {@code /auth/logout}, session management, and everything under {@code /api/v1/account}.
+ * {@code /auth/logout}, session management, and everything under {@code /api/v1/identity/account}.
  *
  * <p>Two ways in, one principal out. A bearer token is verified against our own signing key rather
  * than the published JWKS, which is what every product does — fetching our own key over HTTP from

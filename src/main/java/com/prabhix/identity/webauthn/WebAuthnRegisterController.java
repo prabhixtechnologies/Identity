@@ -22,7 +22,7 @@ import java.util.Map;
  * be one an attacker registered against somebody else's account after guessing an email.
  */
 @RestController
-@RequestMapping("/api/v1/webauthn/register")
+@RequestMapping("/api/v1/identity/webauthn/register")
 @RequiredArgsConstructor
 public class WebAuthnRegisterController {
 

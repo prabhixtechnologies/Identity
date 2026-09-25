@@ -15,7 +15,7 @@ import java.util.UUID;
  * indifferent to which of the two produced the principal.
  *
  * @param sessionId the {@code sid} of the bearer token — a device session for a token minted by
- *     {@code /api/v1/auth/*}, an authorization id for one minted by {@code /oauth2/token}. Null when
+ *     {@code /api/v1/identity/auth/*}, an authorization id for one minted by {@code /oauth2/token}. Null when
  *     the caller is the hosted browser session on {@code /account}, which has neither.
  * @param clientId the OAuth client the token was issued to, from its {@code aud}. Null for tokens
  *     from the direct sign-in endpoints and for the hosted session; recorded on audit events.

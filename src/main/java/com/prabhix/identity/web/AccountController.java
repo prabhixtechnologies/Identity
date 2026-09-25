@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  * is public because the secret in the link is the proof, the way a magic link is.
  */
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/v1/identity/auth")
 @RequiredArgsConstructor
 public class AccountController {
 

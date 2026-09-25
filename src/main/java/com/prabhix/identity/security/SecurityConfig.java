@@ -49,28 +49,28 @@ public class SecurityConfig {
                 .authorizeHttpRequests(requests -> requests
                         // Public because they are how you become authenticated in the first place.
                         .requestMatchers(
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/refresh",
-                                "/api/v1/auth/session/token",
-                                "/api/v1/auth/magic-link/**",
-                                "/api/v1/auth/otp/**",
+                                "/api/v1/identity/auth/register",
+                                "/api/v1/identity/auth/login",
+                                "/api/v1/identity/auth/refresh",
+                                "/api/v1/identity/auth/session/token",
+                                "/api/v1/identity/auth/magic-link/**",
+                                "/api/v1/identity/auth/otp/**",
                                 // Sign-in only. /phone/verify/** and /whatsapp/verify/** are
                                 // deliberately not here: binding a number to an account is an act
                                 // taken from inside a session, or it is a way to assert somebody
                                 // else's number about their account.
-                                "/api/v1/auth/phone/otp/request",
-                                "/api/v1/auth/phone/otp/verify",
-                                "/api/v1/auth/whatsapp/otp/request",
-                                "/api/v1/auth/whatsapp/otp/verify",
-                                "/api/v1/auth/sso/**",
-                                "/api/v1/auth/password/forgot",
-                                "/api/v1/auth/password/reset",
-                                "/api/v1/auth/email/verify/confirm",
+                                "/api/v1/identity/auth/phone/otp/request",
+                                "/api/v1/identity/auth/phone/otp/verify",
+                                "/api/v1/identity/auth/whatsapp/otp/request",
+                                "/api/v1/identity/auth/whatsapp/otp/verify",
+                                "/api/v1/identity/auth/sso/**",
+                                "/api/v1/identity/auth/password/forgot",
+                                "/api/v1/identity/auth/password/reset",
+                                "/api/v1/identity/auth/email/verify/confirm",
                                 // Token in the body is the proof, same as email verify. The request
                                 // is mailed to the NEW address, so requiring a session would lock
                                 // out the person who started the change on a different device.
-                                "/api/v1/auth/email/change/confirm").permitAll()
+                                "/api/v1/identity/auth/email/change/confirm").permitAll()
                         // The whole point of publishing keys is that anyone can fetch them.
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()

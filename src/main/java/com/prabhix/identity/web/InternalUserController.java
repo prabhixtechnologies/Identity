@@ -13,7 +13,7 @@ import com.prabhix.identity.web.AuthDtos.UserLookupResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,7 +42,7 @@ import static com.prabhix.identity.event.AuthEventRecorder.details;
  * second lock rather than the only one.
  */
 @RestController
-@RequestMapping("/internal")
+@RequestMapping("/internal/identity")
 @RequiredArgsConstructor
 public class InternalUserController {
 
@@ -81,8 +81,8 @@ public class InternalUserController {
      * {@code /internal/admin}: this route predates the header and products call it from automated
      * paths with no person behind them.
      */
-    @PostMapping("/users/{id}/revoke-tokens")
-    public void revokeTokens(HttpServletRequest request, @PathVariable UUID id) {
+    @PostMapping("/users/revoke-tokens")
+    public void revokeTokens(HttpServletRequest request, @RequestParam UUID id) {
         serviceTokens.requireServiceToken(request);
         denyList.revokeUser(id);
         events.record(AuthEventType.TOKENS_REVOKED, Outcome.SUCCESS, id, null,

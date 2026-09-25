@@ -39,9 +39,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,13 +56,13 @@ import static com.prabhix.identity.event.AuthEventRecorder.details;
  * Every authentication flow, on the paths the platform already serves them.
  *
  * <p>The paths are unchanged from {@code com.prabhix.platform.auth.web.AuthController} on purpose:
- * Caddy routes {@code /api/v1/auth/*} here, so no client has to learn a new URL for the extraction to
+ * Caddy routes {@code /api/v1/identity/auth/*} here, so no client has to learn a new URL for the extraction to
  * land. Two things did change, and both are the point of the split — the response no longer carries
  * an organization or a permission set, and {@code /auth/me} answers who you are rather than what you
  * can do.
  */
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/v1/identity/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -174,9 +174,9 @@ public class AuthController {
         return new SessionListResponse(views);
     }
 
-    @DeleteMapping("/sessions/{id}")
+    @DeleteMapping("/sessions")
     public void revokeSession(@AuthenticationPrincipal AuthenticatedCaller caller,
-                              @PathVariable UUID id) {
+                              @RequestParam UUID id) {
         sessions.revokeOwn(caller.userId(), id);
         events.success(AuthEventType.SESSION_REVOKED, caller.userId(), null,
                 details("sessionId", id.toString()));

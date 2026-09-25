@@ -200,7 +200,7 @@ class OidcProviderIntegrationTest {
         // The regression this guards: give the authorization server's chain too broad a matcher, or
         // order the API chain after it, and every existing endpoint starts answering a browser
         // redirect. A client parsing JSON would see a 302 to HTML and report it as the API being down.
-        mvc.perform(get("/api/v1/auth/sessions"))
+        mvc.perform(get("/api/v1/identity/auth/sessions"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }

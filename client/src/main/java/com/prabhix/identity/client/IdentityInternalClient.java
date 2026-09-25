@@ -62,7 +62,7 @@ public class IdentityInternalClient {
     public List<IdentityUser> lookup(List<UUID> ids, List<String> emails) {
         LookupResponse response = call("lookup", spec -> spec
                 .post()
-                .uri(config.internalBaseUrl() + "/internal/users/lookup")
+                .uri(config.internalBaseUrl() + "/internal/identity/users/lookup")
                 .headers(h -> h.set(SERVICE_TOKEN_HEADER, config.serviceToken()))
                 .body(new LookupRequest(ids == null ? List.of() : ids, emails == null ? List.of() : emails))
                 .retrieve()
@@ -74,7 +74,7 @@ public class IdentityInternalClient {
     public void revokeTokens(UUID userId) {
         call("revokeTokens", spec -> spec
                 .post()
-                .uri(config.internalBaseUrl() + "/internal/users/" + userId + "/revoke-tokens")
+                .uri(config.internalBaseUrl() + "/internal/identity/users/revoke-tokens?id=" + userId)
                 .headers(h -> h.set(SERVICE_TOKEN_HEADER, config.serviceToken()))
                 .retrieve()
                 .toBodilessEntity());
@@ -99,7 +99,7 @@ public class IdentityInternalClient {
     public UserDetail getUser(UUID userId, Actor actor) {
         return call("getUser", spec -> spec
                 .get()
-                .uri(uri -> admin(uri, "/users/" + userId).build())
+                .uri(uri -> admin(uri, "/users").queryParam("id", userId).build())
                 .headers(h -> actorHeaders(h, actor))
                 .retrieve()
                 .body(UserDetail.class));
@@ -166,7 +166,7 @@ public class IdentityInternalClient {
     private void userAction(UUID userId, String action, Actor actor) {
         call(action, spec -> spec
                 .post()
-                .uri(uri -> admin(uri, "/users/" + userId + "/" + action).build())
+                .uri(uri -> admin(uri, "/users/" + action).queryParam("id", userId).build())
                 .headers(h -> actorHeaders(h, actor))
                 .body(new UserAction(actor == null ? null : actor.reason()))
                 .retrieve()
@@ -174,7 +174,7 @@ public class IdentityInternalClient {
     }
 
     private UriBuilder admin(UriBuilder builder, String path) {
-        URI base = URI.create(config.internalBaseUrl() + "/internal/admin" + path);
+        URI base = URI.create(config.internalBaseUrl() + "/internal/identity/admin" + path);
         return builder.scheme(base.getScheme()).host(base.getHost()).port(base.getPort()).path(base.getPath());
     }
 

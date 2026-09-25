@@ -55,7 +55,7 @@ public class PlatformProvisioning {
         ProvisionResponse response;
         try {
             response = http.post()
-                    .uri(properties.platform().internalBaseUrl() + "/internal/organizations")
+                    .uri(properties.platform().internalBaseUrl() + "/internal/oneops/organizations")
                     .header("X-Prabhix-Service-Token", properties.serviceToken())
                     .body(new ProvisionRequest(user.getId(), user.getEmail(), user.isEmailVerified(),
                             displayName(user), organizationName))

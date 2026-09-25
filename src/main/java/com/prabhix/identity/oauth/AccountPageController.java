@@ -15,7 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -155,8 +154,8 @@ public class AccountPageController {
         }
     }
 
-    @PostMapping("/account/passkeys/{id}/remove")
-    public String removePasskey(@PathVariable UUID id,
+    @PostMapping("/account/passkeys/remove")
+    public String removePasskey(@RequestParam UUID id,
                                 Authentication authentication,
                                 HttpServletRequest request) {
         try {
@@ -177,8 +176,8 @@ public class AccountPageController {
         }
     }
 
-    @PostMapping("/account/sessions/{id}/revoke")
-    public String revokeSession(@PathVariable UUID id,
+    @PostMapping("/account/sessions/revoke")
+    public String revokeSession(@RequestParam UUID id,
                                 Authentication authentication,
                                 HttpServletRequest request) {
         try {
