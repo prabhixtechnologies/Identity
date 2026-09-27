@@ -46,7 +46,7 @@
 
 .ac-brand__tag {
     margin: 0;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.72rem;
     letter-spacing: 0.04em;
 }
@@ -64,7 +64,7 @@
 }
 
 .ac-text-link {
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.85rem;
     font-weight: 600;
     text-decoration: none;
@@ -105,7 +105,7 @@
 
 .ac-who {
     margin: 0 10px 14px;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.78rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -116,7 +116,7 @@
     display: block;
     padding: 8px 12px;
     border-radius: 8px;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.92rem;
     font-weight: 550;
     text-decoration: none;
@@ -168,7 +168,7 @@
 
 .ac-pane-head p {
     margin: 6px 0 0;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.92rem;
 }
 
@@ -257,7 +257,7 @@
 
 .muted {
     margin: 0.15rem 0 0;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.82rem;
 }
 

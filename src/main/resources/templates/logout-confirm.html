@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--
+  data-brand selects the generated token theme in prabhix-tokens.css. Identity is the house
+  surface, so it carries the parent Prabhix Technologies identity (cyan + indigo) rather than
+  any one product's. Client-aware branding — theming the page to whichever product is signing
+  you in — is tracked in Infra/docs/UX-PLAN.md, Phase 5.
+
+  This page used .login-page / .login-card / .btn-primary, none of which exist in any Identity
+  stylesheet, so it rendered as raw browser HTML in the middle of the auth flow. It now uses the
+  same .stage / .shell / .card structure as login.html.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org" data-brand="technologies">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,17 +19,38 @@
     <link rel="stylesheet" th:href="@{/assets/prabhix-tokens.css}">
     <link rel="stylesheet" th:href="@{/assets/login.css}">
 </head>
-<body class="login-page">
-<main class="login-card" id="heading">
-    <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="40" height="40" alt="">
-    <h1>Sign out</h1>
-    <p class="muted">This ends your Prabhix sign-in in this browser. Other apps on this device may stay signed in until you sign out there too.</p>
-    <form method="post" th:action="@{/logout}">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <input type="hidden" name="return_to" th:if="${returnTo}" th:value="${returnTo}">
-        <button type="submit" class="btn btn-primary">Sign out</button>
-    </form>
-    <p class="hint"><a th:href="@{/login}">Cancel and stay signed in</a></p>
-</main>
+<body>
+<a class="skip-link" href="#heading">Skip to content</a>
+<div class="stage">
+    <aside class="stage-brand" aria-hidden="true">
+        <div class="brand-lockup">
+            <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="40" height="40" alt="">
+            <p class="brand">Prabhix</p>
+        </div>
+        <div class="stage-copy">
+            <p class="stage-headline">One account.<br>Every product.</p>
+        </div>
+        <p class="stage-foot">Prabhix Technologies</p>
+    </aside>
+    <main class="shell">
+        <section class="card" aria-labelledby="heading">
+            <div class="brand-lockup">
+                <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="36" height="36" alt="">
+                <p class="brand">Prabhix</p>
+            </div>
+            <h1 id="heading" tabindex="-1">Sign out</h1>
+            <p class="sub">
+                This ends your Prabhix sign-in in this browser. Other apps on this device may stay
+                signed in until you sign out there too.
+            </p>
+            <form method="post" th:action="@{/logout}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" name="return_to" th:if="${returnTo}" th:value="${returnTo}">
+                <button type="submit" class="primary">Sign out</button>
+            </form>
+            <p class="help"><a th:href="@{/login}">Cancel and stay signed in</a></p>
+        </section>
+    </main>
+</div>
 </body>
 </html>

@@ -1,5 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--
+  data-brand selects the generated token theme in prabhix-tokens.css. Identity is the house
+  surface, so it carries the parent Prabhix Technologies identity (cyan + indigo) rather than
+  any one product's. Client-aware branding — theming the page to whichever product is signing
+  you in — is tracked in Infra/docs/UX-PLAN.md, Phase 5.
+
+  This page used .login-page / .login-card / .btn-primary, none of which exist in any Identity
+  stylesheet, so it rendered as raw browser HTML at the exact moment a user is deciding whether
+  to trust a link from their inbox. It now uses the same .stage / .shell / .card structure as
+  login.html, so it looks like the sign-in page it is completing.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org" data-brand="technologies">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,17 +20,37 @@
     <link rel="stylesheet" th:href="@{/assets/prabhix-tokens.css}">
     <link rel="stylesheet" th:href="@{/assets/login.css}">
 </head>
-<body class="login-page">
-<main class="login-card" id="heading">
-    <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="40" height="40" alt="">
-    <h1>Finish signing in</h1>
-    <p class="muted">Continue to Prabhix for <strong th:text="${destination}">you@example.com</strong>.</p>
-    <form method="post" th:action="@{/login/link/confirm}">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <input type="hidden" name="token" th:value="${token}">
-        <button type="submit" class="btn btn-primary">Continue</button>
-    </form>
-    <p class="hint">If you did not request this link, close this page.</p>
-</main>
+<body>
+<a class="skip-link" href="#heading">Skip to content</a>
+<div class="stage">
+    <aside class="stage-brand" aria-hidden="true">
+        <div class="brand-lockup">
+            <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="40" height="40" alt="">
+            <p class="brand">Prabhix</p>
+        </div>
+        <div class="stage-copy">
+            <p class="stage-headline">One account.<br>Every product.</p>
+        </div>
+        <p class="stage-foot">Prabhix Technologies</p>
+    </aside>
+    <main class="shell">
+        <section class="card" aria-labelledby="heading">
+            <div class="brand-lockup">
+                <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="36" height="36" alt="">
+                <p class="brand">Prabhix</p>
+            </div>
+            <h1 id="heading" tabindex="-1">Finish signing in</h1>
+            <p class="whoami">
+                <span th:text="${destination}">you@example.com</span>
+            </p>
+            <form method="post" th:action="@{/login/link/confirm}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" name="token" th:value="${token}">
+                <button type="submit" class="primary">Continue</button>
+            </form>
+            <p class="help">If you did not request this link, close this page.</p>
+        </section>
+    </main>
+</div>
 </body>
 </html>

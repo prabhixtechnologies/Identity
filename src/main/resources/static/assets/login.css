@@ -12,8 +12,8 @@ body {
     min-height: 100vh;
     min-height: 100dvh;
     background:
-        radial-gradient(ellipse 80% 50% at 0% -10%, color-mix(in srgb, var(--px-tech) 16%, transparent), transparent 58%),
-        radial-gradient(ellipse 55% 42% at 100% 110%, color-mix(in srgb, var(--px-cyan) 22%, transparent), transparent 52%),
+        radial-gradient(ellipse 80% 50% at 0% -10%, color-mix(in srgb, var(--px-accent) 16%, transparent), transparent 58%),
+        radial-gradient(ellipse 55% 42% at 100% 110%, color-mix(in srgb, var(--px-accent-2) 22%, transparent), transparent 52%),
         var(--px-bg);
     color: var(--px-ink);
     font-family: var(--px-font-body);
@@ -70,7 +70,7 @@ body {
     cursor: pointer;
     backdrop-filter: blur(10px);
     box-shadow: 0 8px 24px rgba(12, 21, 36, 0.08);
-    transition: color var(--px-motion), border-color var(--px-motion), background var(--px-motion), transform var(--px-motion);
+    transition: color var(--px-duration-fast) var(--px-ease-out), border-color var(--px-duration-fast) var(--px-ease-out), background var(--px-duration-fast) var(--px-ease-out), transform var(--px-duration-fast) var(--px-ease-out);
 }
 
 .theme-toggle:hover {
@@ -246,7 +246,7 @@ body {
 .card {
     background: var(--px-surface);
     border: 1px solid var(--px-border);
-    border-radius: calc(var(--px-radius) + 0.45rem);
+    border-radius: calc(var(--px-radius-md) + 0.45rem);
     padding: 2rem 1.7rem 1.55rem;
     box-shadow: 0 24px 60px rgba(12, 21, 36, 0.08);
 }
@@ -291,7 +291,7 @@ h1 {
 
 .sub {
     margin: 0 0 1.65rem;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.98rem;
 }
 
@@ -300,7 +300,7 @@ label {
     margin-bottom: 0.4rem;
     font-size: 0.82rem;
     font-weight: 600;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
 }
 
 input {
@@ -313,7 +313,7 @@ input {
     background: color-mix(in srgb, var(--px-bg) 72%, var(--px-surface));
     color: var(--px-ink);
     font: inherit;
-    transition: border-color var(--px-motion), background var(--px-motion), box-shadow var(--px-motion);
+    transition: border-color var(--px-duration-fast) var(--px-ease-out), background var(--px-duration-fast) var(--px-ease-out), box-shadow var(--px-duration-fast) var(--px-ease-out);
 }
 
 input:focus {
@@ -339,7 +339,7 @@ button {
     font: inherit;
     font-weight: 650;
     cursor: pointer;
-    transition: transform var(--px-motion), filter var(--px-motion), border-color var(--px-motion), color var(--px-motion), background var(--px-motion), box-shadow var(--px-motion);
+    transition: transform var(--px-duration-fast) var(--px-ease-out), filter var(--px-duration-fast) var(--px-ease-out), border-color var(--px-duration-fast) var(--px-ease-out), color var(--px-duration-fast) var(--px-ease-out), background var(--px-duration-fast) var(--px-ease-out), box-shadow var(--px-duration-fast) var(--px-ease-out);
 }
 
 button.primary {
@@ -405,7 +405,7 @@ a:focus-visible {
     align-items: center;
     gap: 0.75rem;
     margin: 1.35rem 0;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.75rem;
 }
 
@@ -417,7 +417,7 @@ a:focus-visible {
     background: var(--px-border);
 }
 
-.hint { margin: -0.5rem 0 1.1rem; color: var(--px-muted); font-size: 0.82rem; }
+.hint { margin: -0.5rem 0 1.1rem; color: var(--px-ink-muted); font-size: 0.82rem; }
 
 .follow-on {
     margin-top: 1.5rem;
@@ -444,14 +444,14 @@ a:focus-visible {
     color: var(--px-accent);
 }
 
-.help { margin: 1.15rem 0 0; font-size: 0.9rem; color: var(--px-muted); }
+.help { margin: 1.15rem 0 0; font-size: 0.9rem; color: var(--px-ink-muted); }
 .help a { color: var(--px-accent); text-decoration: none; }
 .help a:hover { text-decoration: underline; }
 
 .footprint {
     margin: 1.15rem 0 0;
     text-align: center;
-    color: var(--px-muted);
+    color: var(--px-ink-muted);
     font-size: 0.75rem;
 }
 

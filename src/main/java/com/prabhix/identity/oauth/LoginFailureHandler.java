@@ -2,6 +2,7 @@ package com.prabhix.identity.oauth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
@@ -36,6 +37,22 @@ public class LoginFailureHandler implements AuthenticationFailureHandler {
         if (username != null && !username.isBlank()) {
             LoginChallengeState.setEmail(request, username);
         }
-        redirects.sendRedirect(request, response, "/login?error&method=choose");
+        redirects.sendRedirect(request, response, "/login?error=" + reason(exception) + "&method=choose");
+    }
+
+    /**
+     * The one failure the page is allowed to describe.
+     *
+     * <p>{@link IdentityAuthenticationProvider} already collapses "no such account" and "wrong
+     * password" into one {@code BadCredentialsException} so the form cannot be used to discover
+     * which addresses have accounts. A lock is different: the account's existence is not the
+     * secret, and the person hitting it is almost always its owner, who otherwise retypes a
+     * password that is correct and keeps being told it is wrong.
+     *
+     * <p>The message itself lives in the template, not here — a redirect parameter is attacker
+     * controlled, so the controller maps this token to fixed copy rather than rendering it.
+     */
+    private static String reason(AuthenticationException exception) {
+        return exception instanceof LockedException ? "locked" : "credentials";
     }
 }

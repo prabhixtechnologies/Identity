@@ -7,6 +7,8 @@ import com.prabhix.identity.security.TrustedClientIpResolver;
 import com.prabhix.identity.challenge.PhoneAuthService;
 import com.prabhix.identity.challenge.WhatsAppAuthService;
 import com.prabhix.identity.common.ApiException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.provisioning.SignupService;
 import com.prabhix.identity.sso.GoogleSsoService;
@@ -90,10 +92,7 @@ public class LoginController {
         }
 
         if (error != null) {
-            model.addAttribute("error", GENERIC_FAILURE);
-        }
-        if ("expired".equals(error)) {
-            model.addAttribute("error", "That link has already been used, or has expired.");
+            model.addAttribute("error", failureMessage(error));
         }
         if (signedOut != null) {
             model.addAttribute("notice", "You have been signed out.");
@@ -301,6 +300,28 @@ public class LoginController {
         return LoginChallengeState.phone(request);
     }
 
+    /**
+     * Maps an {@code ?error=} token to copy.
+     *
+     * <p>Every branch returns a literal. The parameter arrives in a URL anyone can craft, so it
+     * selects a message rather than becoming one.
+     *
+     * <p>A locked account used to be told {@link #GENERIC_FAILURE} — "those details do not match
+     * an account" — because this method collapsed every token into that one string. The person
+     * locked out is nearly always the account's owner, typing a password that is in fact correct,
+     * and the page was telling them it was wrong. {@code IdentityAuthenticationProvider} still
+     * collapses "no such account" and "wrong password" together, which is the distinction that
+     * would actually leak something.
+     */
+    private static String failureMessage(String error) {
+        return switch (error) {
+            case "expired" -> "That link has already been used, or has expired.";
+            case "locked" -> "Too many failed attempts. This account is locked for a short while — "
+                    + "try again shortly, or sign in with an emailed link instead.";
+            default -> GENERIC_FAILURE;
+        };
+    }
+
     private static String cleanLoginLocation(String error,
                                              String signedOut,
                                              String sent,
@@ -311,9 +332,12 @@ public class LoginController {
         StringBuilder target = new StringBuilder("/login");
         boolean first = true;
         if (error != null) {
+            // Round-trips the token so the reason survives the address-capture redirect.
+            // Encoded because it arrives from the query string; failureMessage only ever
+            // matches known values, so an unrecognised one lands on the generic message.
             target.append(first ? '?' : '&').append("error");
-            if ("expired".equals(error)) {
-                target.append("=expired");
+            if (!error.isBlank()) {
+                target.append('=').append(URLEncoder.encode(error, StandardCharsets.UTF_8));
             }
             first = false;
         }
