@@ -129,7 +129,7 @@ public class CredentialService {
         if (user.getStatus() == UserStatus.DISABLED) {
             events.denied(AuthEventType.LOGIN_FAILED, user.getId(), user.getEmail(),
                     details("method", "pwd", "reason", "disabled"));
-            throw ApiException.of(ErrorCode.ACCOUNT_DISABLED, "This account has been disabled");
+            throw invalidCredentials();
         }
         if (user.isLockedNow()) {
             events.denied(AuthEventType.LOGIN_FAILED, user.getId(), user.getEmail(),

@@ -76,6 +76,8 @@ class FirstPartyHttpOriginsTest {
                 null,
                 List.of(clients),
                 null,
+                null,
+                null,
                 null);
     }
 }

@@ -1,10 +1,7 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.config.IdentityProperties;
-import com.prabhix.identity.event.AuthEventRecorder;
-import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.security.FirstPartyHttpOrigins;
-import com.prabhix.identity.session.SessionCookieService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -12,12 +9,8 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.util.matcher.RequestMatcher;
-
-import java.util.UUID;
-
-import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /**
  * The one login page every Prabhix property redirects to.
@@ -39,9 +32,7 @@ public class LoginUiConfig {
     @Order(2)
     public SecurityFilterChain loginUiChain(HttpSecurity http,
                                             LoginFailureHandler failureHandler,
-                                            IdentityProperties properties,
-                                            SessionCookieService sessionCookies,
-                                            AuthEventRecorder events) throws Exception {
+                                            IdentityProperties properties) throws Exception {
         http
                 // /signup and /account belong on this chain and not the API one: they are documents
                 // with a form, so they need a session to hold the pending authorization request (or
@@ -54,8 +45,7 @@ public class LoginUiConfig {
                 // Chrome Custom Tabs (AppAuth). Plain attribute handler + reading the token in
                 // the form is enough for a same-origin cookie session.
                 .csrf(csrf -> csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
-                .exceptionHandling(ex -> ex.accessDeniedHandler((request, response, denied) ->
-                        response.sendRedirect("/login?error&method=choose")))
+                .exceptionHandling(ex -> ex.accessDeniedHandler(logoutAwareAccessDenied()))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/login/**", "/signup", "/assets/**", "/logout").permitAll()
                         // Token in the query string is the proof, same as /login/link.
@@ -70,27 +60,7 @@ public class LoginUiConfig {
                         // The page asks for the address and the password on separate steps, so the
                         // default /login?error would discard the address along with the attempt.
                         .failureHandler(failureHandler))
-                .logout(logout -> logout
-                        // GET as well as POST: product SPAs navigate here when they have no
-                        // id_token_hint for /connect/logout (SSO via another app's cookie, or a lost
-                        // sessionStorage). POST-only left those browsers on a 400 and still signed in.
-                        .logoutRequestMatcher(logoutGetOrPost())
-                        .logoutSuccessUrl("/login?signedOut")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
-                        // Servlet deleteCookies does not honor Domain= on pbx_session, so the
-                        // shared parent-domain cookie would survive a hosted sign-out.
-                        .addLogoutHandler((request, response, authentication) ->
-                                sessionCookies.clear(response))
-                        // Before Spring's own handler clears the context, while there is still an
-                        // authentication to name. The principal is the user id, per HostedSignIn.
-                        .addLogoutHandler((request, response, authentication) -> {
-                            if (authentication != null) {
-                                hostedUserId(authentication.getName()).ifPresent(userId ->
-                                        events.success(AuthEventType.LOGOUT, userId, null,
-                                                details("surface", "hosted")));
-                            }
-                        }))
+                // Sign-out is handled by {@link LogoutController}: GET confirms, POST completes.
                 // Form posts are cookie-authenticated, so this chain is exactly the CSRF surface the
                 // API chain is not. Left enabled, with the token rendered into the form.
                 .sessionManagement(session ->
@@ -104,32 +74,24 @@ public class LoginUiConfig {
                 // sending one here is what replaces it.
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp ->
-                                csp.policyDirectives(FirstPartyHttpOrigins.loginCsp(properties))));
+                                csp.policyDirectives(FirstPartyHttpOrigins.loginCsp(properties)))
+                        .referrerPolicy(referrer -> referrer.policy(
+                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)));
 
         return http.build();
     }
 
-    private static java.util.Optional<UUID> hostedUserId(String principalName) {
-        try {
-            return java.util.Optional.of(UUID.fromString(principalName));
-        } catch (IllegalArgumentException | NullPointerException ex) {
-            return java.util.Optional.empty();
-        }
-    }
-
-    /** Matches browser navigations (GET) and form posts (POST) to the hosted sign-out URL. */
-    private static RequestMatcher logoutGetOrPost() {
-        return request -> {
-            String path = request.getRequestURI();
-            if (path == null) {
-                return false;
+    /**
+     * Bare POSTs to {@code /logout} (for example from {@code @prabhix/oidc-client} without an
+     * {@code id_token_hint}) fail CSRF and land on the confirmation page instead of returning 403.
+     */
+    private static AccessDeniedHandler logoutAwareAccessDenied() {
+        return (request, response, denied) -> {
+            if (LogoutCsrfRedirect.shouldShowConfirmationPage(request, denied)) {
+                response.sendRedirect("/logout");
+                return;
             }
-            // Context path is empty in our images; still tolerate a trailing slash from a proxy.
-            if (!"/logout".equals(path) && !path.endsWith("/logout")) {
-                return false;
-            }
-            String method = request.getMethod();
-            return "GET".equalsIgnoreCase(method) || "POST".equalsIgnoreCase(method);
+            response.sendRedirect("/login?error&method=choose");
         };
     }
 

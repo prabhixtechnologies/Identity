@@ -23,10 +23,12 @@ public final class RequestMetadata {
      * there. It is used for rate limiting and for the audit trail, never for access decisions.
      */
     public static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        String address = forwarded != null && !forwarded.isBlank()
-                ? forwarded.split(",")[0].trim()
-                : request.getRemoteAddr();
+        return clientIp(request, null);
+    }
+
+    /** Uses {@link TrustedClientIpResolver} when supplied; otherwise falls back to the TCP peer. */
+    public static String clientIp(HttpServletRequest request, TrustedClientIpResolver trusted) {
+        String address = trusted == null ? request.getRemoteAddr() : trusted.resolve(request);
         return truncate(address, IP_MAX);
     }
 

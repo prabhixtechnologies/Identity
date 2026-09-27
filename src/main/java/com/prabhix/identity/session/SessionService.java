@@ -8,12 +8,15 @@ import com.prabhix.identity.session.DeviceSession.DeviceType;
 import com.prabhix.identity.token.TokenDenyList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** Device sessions and the rotating refresh tokens attached to them. */
@@ -211,7 +214,59 @@ public class SessionService {
         for (DeviceSession session : listActive(userId)) {
             revoke(session.getId(), reason);
         }
+        refreshTokens.revokeAllActiveForUser(userId, Instant.now());
         denyList.revokeUser(userId);
+    }
+
+    /**
+     * Cutover helper: revokes every active device session and refresh token in bounded batches.
+     *
+     * <p>Idempotent — a second call finds nothing left to revoke. User-scoped deny-list entries are
+     * written for every user touched so outstanding access tokens fail verification promptly.
+     */
+    @Transactional
+    public GlobalRevocationResult revokeAllActiveGlobally(String reason, int batchSize) {
+        int limit = Math.max(1, Math.min(batchSize, 500));
+        Set<UUID> users = new HashSet<>();
+        int sessionsRevoked = 0;
+        while (true) {
+            List<DeviceSession> batch =
+                    sessions.findActiveSessions(PageRequest.of(0, limit));
+            if (batch.isEmpty()) {
+                break;
+            }
+            for (DeviceSession session : batch) {
+                users.add(session.getUserId());
+                revoke(session.getId(), reason);
+                sessionsRevoked++;
+            }
+            if (batch.size() < limit) {
+                break;
+            }
+        }
+
+        int refreshTokensRevoked = 0;
+        Instant now = Instant.now();
+        while (true) {
+            List<RefreshToken> batch = refreshTokens.findActiveTokens(PageRequest.of(0, limit));
+            if (batch.isEmpty()) {
+                break;
+            }
+            for (RefreshToken token : batch) {
+                users.add(token.getUserId());
+                token.setRevokedAt(now);
+                refreshTokens.save(token);
+                refreshTokensRevoked++;
+            }
+            if (batch.size() < limit) {
+                break;
+            }
+        }
+
+        for (UUID userId : users) {
+            denyList.revokeUser(userId);
+        }
+        return new GlobalRevocationResult(sessionsRevoked, refreshTokensRevoked, users.size());
     }
 
     /**
@@ -279,5 +334,8 @@ public class SessionService {
     }
 
     public record RotatedToken(DeviceSession session, UUID userId, String refreshToken) {
+    }
+
+    public record GlobalRevocationResult(int sessionsRevoked, int refreshTokensRevoked, int usersMarked) {
     }
 }

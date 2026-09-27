@@ -58,7 +58,9 @@ public final class TestProperties {
                 // that had escaped its own boundary — and the hostname does not resolve, so it fails
                 // rather than finding something.
                 new IdentityProperties.Platform("http://platform.invalid:8080"),
-                "test-service-token");
+                "test-service-token",
+                new IdentityProperties.RateLimit(true, 20, 10, 5, 30, 3, ""),
+                new IdentityProperties.TrustedProxy(List.of("127.0.0.1/32")));
     }
 
     /**
@@ -96,6 +98,8 @@ public final class TestProperties {
                 base.mail(),
                 base.clients(),
                 base.platform(),
-                base.serviceToken());
+                base.serviceToken(),
+                base.rateLimit(),
+                base.trustedProxy());
     }
 }

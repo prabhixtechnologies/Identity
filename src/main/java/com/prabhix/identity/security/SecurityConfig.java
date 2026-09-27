@@ -5,6 +5,7 @@ import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.config.IdentityProperties;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -27,6 +28,9 @@ public class SecurityConfig {
     private final IdentityAuthenticationFilter authenticationFilter;
     private final ObjectMapper objectMapper;
     private final IdentityProperties properties;
+
+    @Value("${springdoc.swagger-ui.enabled:false}")
+    private boolean swaggerEnabled;
 
     /**
      * The API chain, and the last one consulted.
@@ -81,10 +85,8 @@ public class SecurityConfig {
                         // controller were indistinguishable from each other and from an expired
                         // token, which is a long way to look for a bug that reports itself wrongly.
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // Guarded by a shared service token inside the controller, not by a bearer
-                        // token, because the caller is a product rather than a person.
-                        .requestMatchers("/internal/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                                .access((authentication, context) -> new org.springframework.security.authorization.AuthorizationDecision(swaggerEnabled))
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling.authenticationEntryPoint(entryPoint()))
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);

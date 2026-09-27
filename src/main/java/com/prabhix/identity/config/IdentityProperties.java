@@ -29,7 +29,40 @@ public record IdentityProperties(
         @DefaultValue Mail mail,
         @DefaultValue List<Client> clients,
         @DefaultValue Platform platform,
-        String serviceToken) {
+        String serviceToken,
+        @DefaultValue RateLimit rateLimit,
+        @DefaultValue TrustedProxy trustedProxy) {
+
+    /**
+     * Redis-backed authentication throttling with an in-memory fallback when the cache is unreachable.
+     *
+     * @param keyPepper mixed into hashed bucket keys so Redis key names never carry raw emails or
+     *     tokens. Defaults to the service token when blank.
+     */
+    public record RateLimit(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("20") int loginAttemptsPerMinutePerIp,
+            @DefaultValue("10") int loginAttemptsPerMinutePerAccount,
+            @DefaultValue("5") int issueAttemptsPerMinutePerDestination,
+            @DefaultValue("30") int verifyAttemptsPerMinutePerIp,
+            @DefaultValue("3") int redisDegradedAttemptsPerMinutePerIp,
+            @DefaultValue("") String keyPepper) {
+
+        public String effectivePepper(String serviceToken) {
+            if (keyPepper != null && !keyPepper.isBlank()) {
+                return keyPepper;
+            }
+            return serviceToken == null ? "local-dev" : serviceToken;
+        }
+    }
+
+    /**
+     * Which hops may supply {@code X-Forwarded-For}. The left-most client address is taken only when
+     * the TCP peer is a trusted reverse proxy, never from an arbitrary client-supplied chain.
+     */
+    public record TrustedProxy(@DefaultValue({"127.0.0.1/32", "::1/128", "10.0.0.0/8", "172.16.0.0/12"})
+                               List<String> trustedCidrs) {
+    }
 
     /**
      * The product that owns organizations, for the tenant half of signing up.

@@ -33,7 +33,9 @@ public enum AuthEventType {
     ADMIN_USER_UNLOCKED,
     ADMIN_FORCE_RESET,
     ADMIN_SESSIONS_REVOKED,
-    TOKENS_REVOKED;
+    TOKENS_REVOKED,
+    /** Invalid or incomplete service authentication to {@code /internal}. */
+    INTERNAL_ACCESS_DENIED;
 
     /**
      * @param outcome how it went. {@code DENIED} is for a request that was well-formed and refused on

@@ -2,8 +2,7 @@ package com.prabhix.identity.security;
 
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
-import com.prabhix.identity.common.Secrets;
-import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.security.internal.InternalServiceAuthValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -14,10 +13,9 @@ import java.util.UUID;
 /**
  * The lock on {@code /internal}: a shared token that only our own services hold.
  *
- * <p>Checked inside the controllers rather than by a filter chain, because {@code /internal/**} is
- * {@code permitAll} at the Spring Security layer — the caller is a product, not a person, and there
- * is no bearer token to verify. Caddy not routing {@code /internal} at all is the first lock; this is
- * the second.
+ * <p>Controllers still call these methods for defence in depth. {@link InternalServiceAuthFilter}
+ * validates the same rules first and sets {@link InternalServiceAuthValidator#VERIFIED_REQUEST_ATTRIBUTE}
+ * so a second pass does not re-count rate limits.
  *
  * <p>The admin surface adds a second requirement on top: the staff member on whose behalf the
  * product is calling, so that "who disabled this account" has an answer that is a person and not
@@ -31,22 +29,14 @@ public class ServiceTokenAuthenticator {
     public static final String ACTING_USER_HEADER = "X-Prabhix-Acting-User";
     public static final String ACTING_REASON_HEADER = "X-Prabhix-Acting-Reason";
 
-    private final IdentityProperties properties;
+    private final InternalServiceAuthValidator internalAuth;
 
     /**
      * A blank configured token disables the endpoint rather than accepting a blank header, so a
      * deployment that forgot to set one fails closed.
      */
     public void requireServiceToken(HttpServletRequest request) {
-        String expected = properties.serviceToken();
-        if (expected == null || expected.isBlank()) {
-            throw ApiException.of(ErrorCode.FEATURE_DISABLED,
-                    "This deployment has no service token configured");
-        }
-        String presented = request.getHeader(SERVICE_TOKEN_HEADER);
-        if (presented == null || !Secrets.constantTimeEquals(expected, presented)) {
-            throw ApiException.of(ErrorCode.UNAUTHENTICATED, "That service token is not valid");
-        }
+        internalAuth.verify(request, false);
     }
 
     /**

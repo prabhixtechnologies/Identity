@@ -1,6 +1,9 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.challenge.PasswordlessService;
+import com.prabhix.identity.challenge.PasswordlessService.MagicLinkPreview;
+import com.prabhix.identity.security.RequestMetadata;
+import com.prabhix.identity.security.TrustedClientIpResolver;
 import com.prabhix.identity.challenge.PhoneAuthService;
 import com.prabhix.identity.challenge.WhatsAppAuthService;
 import com.prabhix.identity.common.ApiException;
@@ -55,6 +58,7 @@ public class LoginController {
     private final GoogleSsoService google;
     private final HostedSignIn hostedSignIn;
     private final SignupService signup;
+    private final TrustedClientIpResolver clientIp;
 
     @GetMapping("/login")
     public String login(@RequestParam(required = false) String error,
@@ -141,27 +145,39 @@ public class LoginController {
         if (address.isBlank()) {
             return "redirect:/login";
         }
-        passwordless.requestMagicLink(address, request.getRemoteAddr());
+        passwordless.requestMagicLink(address, RequestMetadata.clientIp(request, clientIp));
         return "redirect:/login?sent=link";
     }
 
     /**
-     * Opens a magic link.
+     * Previews a magic link from email.
      *
-     * <p>A GET that changes state, which is normally wrong and is unavoidable here: this URL arrives
-     * in an email, and an email client can only issue a GET. The token is single-use, which is what
-     * keeps a prefetching mail client from being able to replay it.
+     * <p>Email clients can only GET, so this step validates the token without consuming it. Sign-in
+     * completes on a CSRF-protected POST to {@link #confirmLink}.
      */
     @GetMapping("/login/link")
-    public String openLink(@RequestParam String token,
-                           HttpServletRequest request,
-                           HttpServletResponse response) throws IOException, ServletException {
+    public String previewLink(@RequestParam String token, Model model) {
+        try {
+            MagicLinkPreview preview = passwordless.previewMagicLink(token);
+            model.addAttribute("token", token);
+            model.addAttribute("destination", maskDestination(preview.destination()));
+            return "magic-link-confirm";
+        } catch (ApiException ex) {
+            log.debug("Magic link rejected: {}", ex.getMessage());
+            return "redirect:/login?error=expired";
+        }
+    }
+
+    @PostMapping("/login/link/confirm")
+    public String confirmLink(@RequestParam String token,
+                              HttpServletRequest request,
+                              HttpServletResponse response) throws IOException, ServletException {
         try {
             hostedSignIn.completeAndRedirect(passwordless.authenticateByMagicLink(token),
                     FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
-            log.debug("Magic link rejected: {}", ex.getMessage());
+            log.debug("Magic link confirmation rejected: {}", ex.getMessage());
             return "redirect:/login?error=expired";
         }
     }
@@ -173,7 +189,7 @@ public class LoginController {
         if (address.isBlank()) {
             return "redirect:/login";
         }
-        passwordless.requestOtp(address, request.getRemoteAddr());
+        passwordless.requestOtp(address, RequestMetadata.clientIp(request, clientIp));
         return "redirect:/login?code";
     }
 
@@ -196,7 +212,7 @@ public class LoginController {
     @PostMapping("/login/phone")
     public String requestPhoneCode(@RequestParam String phone, HttpServletRequest request) {
         try {
-            phones.requestOtp(phone, request.getRemoteAddr());
+            phones.requestOtp(phone, RequestMetadata.clientIp(request, clientIp));
         } catch (ApiException ex) {
             return "redirect:/login?phone&error";
         }
@@ -223,7 +239,7 @@ public class LoginController {
     @PostMapping("/login/whatsapp")
     public String requestWhatsAppCode(@RequestParam String phone, HttpServletRequest request) {
         try {
-            whatsApp.requestOtp(phone, request.getRemoteAddr());
+            whatsApp.requestOtp(phone, RequestMetadata.clientIp(request, clientIp));
         } catch (ApiException ex) {
             return "redirect:/login?whatsapp&error";
         }
@@ -332,5 +348,16 @@ public class LoginController {
             target.append(first ? '?' : '&').append("method=choose");
         }
         return target.toString();
+    }
+
+    private static String maskDestination(String destination) {
+        if (destination == null || destination.isBlank()) {
+            return "your account";
+        }
+        int at = destination.indexOf('@');
+        if (at <= 1) {
+            return destination;
+        }
+        return destination.charAt(0) + "…" + destination.substring(at);
     }
 }

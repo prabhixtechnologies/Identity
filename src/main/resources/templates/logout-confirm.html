@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Sign out · Prabhix</title>
+    <link rel="stylesheet" th:href="@{/assets/prabhix-tokens.css}">
+    <link rel="stylesheet" th:href="@{/assets/login.css}">
+</head>
+<body class="login-page">
+<main class="login-card" id="heading">
+    <img class="brand-mark" th:src="@{/assets/prabhix-mark.svg}" width="40" height="40" alt="">
+    <h1>Sign out</h1>
+    <p class="muted">This ends your Prabhix sign-in in this browser. Other apps on this device may stay signed in until you sign out there too.</p>
+    <form method="post" th:action="@{/logout}">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="return_to" th:if="${returnTo}" th:value="${returnTo}">
+        <button type="submit" class="btn btn-primary">Sign out</button>
+    </form>
+    <p class="hint"><a th:href="@{/login}">Cancel and stay signed in</a></p>
+</main>
+</body>
+</html>

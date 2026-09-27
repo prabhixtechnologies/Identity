@@ -4,7 +4,7 @@ import com.prabhix.identity.event.AuthEventRecorder;
 import com.prabhix.identity.event.AuthEventType;
 import com.prabhix.identity.event.AuthEventType.Outcome;
 import com.prabhix.identity.security.ServiceTokenAuthenticator;
-import com.prabhix.identity.token.TokenDenyList;
+import com.prabhix.identity.session.SessionService;
 import com.prabhix.identity.user.IdentityUser;
 import com.prabhix.identity.user.IdentityUserRepository;
 import com.prabhix.identity.web.AuthDtos.MirroredUser;
@@ -49,7 +49,7 @@ public class InternalUserController {
     private static final int MAX_BATCH = 200;
 
     private final IdentityUserRepository users;
-    private final TokenDenyList denyList;
+    private final SessionService sessions;
     private final ServiceTokenAuthenticator serviceTokens;
     private final AuthEventRecorder events;
 
@@ -84,7 +84,7 @@ public class InternalUserController {
     @PostMapping("/users/revoke-tokens")
     public void revokeTokens(HttpServletRequest request, @RequestParam UUID id) {
         serviceTokens.requireServiceToken(request);
-        denyList.revokeUser(id);
+        sessions.revokeAll(id, "service_revoke");
         events.record(AuthEventType.TOKENS_REVOKED, Outcome.SUCCESS, id, null,
                 serviceTokens.actingUser(request).orElse(null),
                 details("route", "internal/users/revoke-tokens"));

@@ -121,7 +121,7 @@ class CredentialServiceTest {
         user.setStatus(UserStatus.DISABLED);
 
         assertThat(catchApi(() -> service.authenticate("owner@example.com", PASSWORD)).getCode())
-                .isEqualTo(ErrorCode.ACCOUNT_DISABLED);
+                .isEqualTo(ErrorCode.INVALID_CREDENTIALS);
     }
 
     @Test

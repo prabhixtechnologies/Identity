@@ -189,8 +189,13 @@ public class WebAuthnService {
         session.setAttribute(SESSION_ASSERTION_CHALLENGE, challenge.getValue());
 
         List<PublicKeyCredentialDescriptor> allow = List.of();
+        UserVerificationRequirement verification = UserVerificationRequirement.PREFERRED;
         if (email != null && !email.isBlank()) {
-            allow = users.findActiveByEmail(email)
+            var resolved = users.findActiveByEmail(email);
+            if (resolved.isPresent() && resolved.get().isPlatformAdmin()) {
+                verification = UserVerificationRequirement.REQUIRED;
+            }
+            allow = resolved
                     .map(user -> credentials.findByUserId(user.getId()).stream()
                             .map(cred -> new PublicKeyCredentialDescriptor(
                                     PublicKeyCredentialType.PUBLIC_KEY,
@@ -207,7 +212,7 @@ public class WebAuthnService {
                 120_000L,
                 properties.webAuthn().rpId(),
                 allow,
-                UserVerificationRequirement.PREFERRED,
+                verification,
                 null);
 
         return objectConverter.getJsonConverter().readValue(
@@ -262,6 +267,12 @@ public class WebAuthnService {
         credentials.save(stored);
 
         IdentityUser user = credentialService.requireSignInAllowed(stored.getUserId());
+        if (user.isPlatformAdmin() && !authenticationData.getAuthenticatorData().isFlagUV()) {
+            events.failure(AuthEventType.LOGIN_FAILED, user.getId(), user.getEmail(),
+                    details("method", "passkey", "reason", "user_verification_required",
+                            "passkeyId", stored.getId().toString()));
+            throw ApiException.of(ErrorCode.INVALID_CREDENTIALS, "Those details do not match an account.");
+        }
         credentialService.resetLoginFailures(user);
         return user;
     }

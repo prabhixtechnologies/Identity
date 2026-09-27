@@ -74,6 +74,19 @@
     color: var(--px-accent);
 }
 
+.ac-inline-form {
+    display: inline;
+    margin: 0;
+}
+
+.ac-text-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+}
+
 .ac-floor {
     display: flex;
     min-height: calc(100dvh - 56px);

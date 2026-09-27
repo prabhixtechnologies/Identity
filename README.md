@@ -60,7 +60,12 @@ without any client learning a new URL.
 | `POST /api/v1/identity/auth/email/verify/{request,confirm}` | Confirm an address. |
 | `POST /api/v1/identity/auth/sso/google` | Google sign-in. |
 | `POST /internal/users/lookup` | For a product filling its local `users` mirror. Guarded by `X-Prabhix-Service-Token`, and not routed publicly. |
-| `POST /internal/users/{id}/revoke-tokens` | Break-glass revocation of every token for one account. |
+| `POST /internal/identity/users/revoke-tokens` | Break-glass revocation of every session, refresh token and access token for one account. |
+| `POST /internal/identity/sessions/revoke-all` | Cutover: revoke every active session and refresh token fleet-wide (batched, idempotent). |
+| `GET /logout` → `POST /logout` | Hosted sign-out without an OIDC id token: confirm, then CSRF-protected POST. |
+
+Security-oriented flow notes (rate limits, magic-link confirmation, Google replay protection, staff
+passkeys): [`docs/SECURITY-FLOWS.md`](docs/SECURITY-FLOWS.md).
 
 ### The user mirror
 

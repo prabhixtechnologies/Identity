@@ -83,6 +83,16 @@ class ChallengeServiceTest {
     }
 
     @Test
+    @DisplayName("previewing a link does not consume it")
+    void previewDoesNotConsume() {
+        String secret = service.raise(ChallengePurpose.MAGIC_LINK, userId, "a@b.com", null).rawSecret();
+
+        service.previewBySecret(secret, ChallengePurpose.MAGIC_LINK);
+        assertThat(service.previewBySecret(secret, ChallengePurpose.MAGIC_LINK).getConsumedAt()).isNull();
+        assertThat(service.consumeBySecret(secret, ChallengePurpose.MAGIC_LINK).getConsumedAt()).isNotNull();
+    }
+
+    @Test
     @DisplayName("a link works once")
     void linkIsSingleUse() {
         String secret = service.raise(ChallengePurpose.MAGIC_LINK, userId, "a@b.com", null).rawSecret();

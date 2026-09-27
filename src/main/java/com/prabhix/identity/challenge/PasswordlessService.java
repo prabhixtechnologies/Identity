@@ -69,6 +69,13 @@ public class PasswordlessService {
      * cookie, and the refresh token {@code SignInService.complete} also mints would be handed to
      * nobody and revoked by nothing.
      */
+    /** Validates a magic link for display, without signing anyone in yet. */
+    @Transactional(readOnly = true)
+    public MagicLinkPreview previewMagicLink(String rawToken) {
+        AuthChallenge challenge = challenges.previewBySecret(rawToken, ChallengePurpose.MAGIC_LINK);
+        return new MagicLinkPreview(challenge.getUserId(), challenge.getDestination());
+    }
+
     @Transactional
     public IdentityUser authenticateByMagicLink(String rawToken) {
         AuthChallenge challenge = challenges.consumeBySecret(rawToken, ChallengePurpose.MAGIC_LINK);
@@ -186,5 +193,8 @@ public class PasswordlessService {
     private String hostedLink(String path, String rawToken) {
         return properties.issuer() + path + "?token="
                 + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
+    }
+
+    public record MagicLinkPreview(java.util.UUID userId, String destination) {
     }
 }

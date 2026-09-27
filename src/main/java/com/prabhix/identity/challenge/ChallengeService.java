@@ -69,11 +69,29 @@ public class ChallengeService {
      * against — guessing 256 bits is not a threat model. The attempt ceiling still applies, because a
      * challenge can be found and then fail a later check.
      */
-    @Transactional
-    public AuthChallenge consumeBySecret(String rawSecret, ChallengePurpose purpose) {
+    /**
+     * Validates a link token without consuming it, for a confirmation step.
+     */
+    @Transactional(readOnly = true)
+    public AuthChallenge previewBySecret(String rawSecret, ChallengePurpose purpose) {
         AuthChallenge challenge = challenges
                 .findBySecretHashAndPurposeAndConsumedAtIsNull(Secrets.sha256(rawSecret), purpose)
                 .orElseThrow(() -> ApiException.of(ErrorCode.TOKEN_INVALID, "That link is not valid"));
+        if (challenge.isExpired()) {
+            throw ApiException.of(ErrorCode.OTP_EXPIRED, "That link has expired");
+        }
+        if (challenge.isOutOfAttempts()) {
+            throw tooManyAttempts();
+        }
+        if (challenge.isConsumed()) {
+            throw ApiException.of(ErrorCode.CONFLICT, "That link was already used");
+        }
+        return challenge;
+    }
+
+    @Transactional
+    public AuthChallenge consumeBySecret(String rawSecret, ChallengePurpose purpose) {
+        AuthChallenge challenge = previewBySecret(rawSecret, purpose);
         return consume(challenge, "link");
     }
 

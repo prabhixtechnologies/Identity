@@ -6,7 +6,11 @@ import com.prabhix.identity.challenge.PhoneAuthService;
 import com.prabhix.identity.challenge.WhatsAppAuthService;
 import com.prabhix.identity.event.AuthEventRecorder;
 import com.prabhix.identity.event.AuthEventType;
+import com.prabhix.identity.common.ApiException;
+import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.security.AuthenticatedCaller;
+import com.prabhix.identity.security.RequestMetadata;
+import com.prabhix.identity.security.TrustedClientIpResolver;
 import com.prabhix.identity.session.DeviceSession;
 import com.prabhix.identity.session.SessionCookieService;
 import com.prabhix.identity.session.SessionService;
@@ -77,6 +81,7 @@ public class AuthController {
     private final GoogleSsoService googleSso;
     private final SignupService signup;
     private final AuthEventRecorder events;
+    private final TrustedClientIpResolver clientIpResolver;
 
     /**
      * Signs somebody up, with the workspace that makes the account worth having.
@@ -95,10 +100,19 @@ public class AuthController {
                                   HttpServletRequest httpRequest,
                                   HttpServletResponse httpResponse) {
         String organizationName = request.organizationName();
-        IdentityUser user = organizationName == null || organizationName.isBlank()
-                ? credentials.create(request.email(), request.password(), request.fullName())
-                : signup.signUp(request.email(), request.password(), request.fullName(),
-                        organizationName.trim());
+        IdentityUser user;
+        try {
+            user = organizationName == null || organizationName.isBlank()
+                    ? credentials.create(request.email(), request.password(), request.fullName())
+                    : signup.signUp(request.email(), request.password(), request.fullName(),
+                            organizationName.trim());
+        } catch (ApiException ex) {
+            if (ex.getCode() == ErrorCode.ALREADY_EXISTS) {
+                throw ApiException.of(ErrorCode.INVALID_CREDENTIALS,
+                        "Unable to register with these details");
+            }
+            throw ex;
+        }
 
         TokenResponse response = signIn.complete(user, device(request.deviceId(), request.deviceName(),
                 request.deviceType(), httpRequest), List.of("pwd"));
@@ -342,19 +356,7 @@ public class AuthController {
                 request.getHeader("User-Agent"), clientIp(request));
     }
 
-    /**
-     * The caller's address as seen past the reverse proxy.
-     *
-     * <p>Only the first hop of {@code X-Forwarded-For} is taken, and only because Caddy sets it: the
-     * header is client-supplied, so anything further along the chain is whatever the client wrote
-     * there. It is used for rate limiting and for the audit trail on a challenge, never for access
-     * decisions.
-     */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return RequestMetadata.clientIp(request, clientIpResolver);
     }
 }

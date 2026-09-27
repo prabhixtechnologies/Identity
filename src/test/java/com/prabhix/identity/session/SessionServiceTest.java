@@ -11,6 +11,7 @@ import com.prabhix.identity.token.TokenDenyList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -71,6 +72,20 @@ class SessionServiceTest {
             return tokenRows.values().stream()
                     .filter(token -> hash.equals(token.getTokenHash()))
                     .findFirst();
+        });
+        when(sessions.findActiveSessions(any(Pageable.class))).thenAnswer(call -> {
+            Pageable pageable = call.getArgument(0);
+            return sessionRows.values().stream()
+                    .filter(session -> session.getRevokedAt() == null)
+                    .limit(pageable.getPageSize())
+                    .toList();
+        });
+        when(refreshTokens.findActiveTokens(any(Pageable.class))).thenAnswer(call -> {
+            Pageable pageable = call.getArgument(0);
+            return tokenRows.values().stream()
+                    .filter(token -> token.getRevokedAt() == null)
+                    .limit(pageable.getPageSize())
+                    .toList();
         });
     }
 
@@ -230,6 +245,29 @@ class SessionServiceTest {
         // A 403 would confirm the id names a real session, turning the endpoint into a way to
         // enumerate them.
         assertThat(sessionRows.get(theirs.getId()).getRevokedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("global revocation clears every active session and is idempotent")
+    void globalRevocationIsIdempotent() {
+        UUID userId = UUID.randomUUID();
+        service.openOrReuse(userId, web());
+        String raw = service.issueRefreshToken(userId, sessionRows.values().iterator().next().getId());
+
+        SessionService.GlobalRevocationResult first =
+                service.revokeAllActiveGlobally("cutover", 50);
+        assertThat(first.sessionsRevoked()).isEqualTo(1);
+        assertThat(first.refreshTokensRevoked()).isEqualTo(1);
+        assertThat(first.usersMarked()).isEqualTo(1);
+        verify(denyList).revokeUser(userId);
+
+        SessionService.GlobalRevocationResult second =
+                service.revokeAllActiveGlobally("cutover", 50);
+        assertThat(second.sessionsRevoked()).isZero();
+        assertThat(second.refreshTokensRevoked()).isZero();
+
+        assertThatThrownBy(() -> service.rotate(raw))
+                .isInstanceOf(ApiException.class);
     }
 
     @Test
