@@ -37,7 +37,7 @@ jobs:
         run: |
           find target/surefire-reports target/failsafe-reports -name '*.txt' -type f -print0 2>/dev/null |
             xargs -0 grep -hE '<<< FAILURE|<<< ERROR|Caused by:|IllegalStateException|AssertionError' |
-            tail -n 30 |
+            head -n 30 |
             while IFS= read -r line; do echo "::error::$line"; done
 
       # The pom hands Mockito's agent to the JVM at startup rather than letting it attach to a
