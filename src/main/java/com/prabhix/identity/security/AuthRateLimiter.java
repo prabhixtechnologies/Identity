@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -45,6 +46,7 @@ public class AuthRateLimiter {
         this(redis, properties, new SimpleMeterRegistry());
     }
 
+    @Autowired
     public AuthRateLimiter(StringRedisTemplate redis, IdentityProperties properties, MeterRegistry meters) {
         this.redis = redis;
         this.properties = properties;
