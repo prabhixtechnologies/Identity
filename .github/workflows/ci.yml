@@ -7,6 +7,35 @@ on:
     branches: [main]
 
 jobs:
+  # src/main/resources/static/assets/prabhix-tokens.css is generated, not written. The generator
+  # lives in web-kit and writes into every repository that holds a copy, so the only way this one
+  # can be verified is to clone web-kit alongside the checkout and ask it to recompute.
+  #
+  # Worth a job of its own: the file is hand-editable, nothing in Maven looks at it, and a stale
+  # copy shows up as the sign-in page quietly disagreeing with every other surface about what the
+  # brand colours are. Failure means "run the generator and commit", never "edit the CSS".
+  tokens:
+    name: Design tokens in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The generator resolves its targets relative to the directory holding web-kit, so this has
+      # to sit beside the checkout rather than inside it. On a runner that is work/Identity/, which
+      # already contains the checkout in a directory named Identity — which is how the generator
+      # recognises that this repository is present and its copy is worth checking.
+      - name: Check out web-kit beside this repository
+        run: git clone --depth 1 https://github.com/prabhixtechnologies/web-kit.git "$GITHUB_WORKSPACE/../web-kit"
+
+      - name: Recompute tokens and compare
+        working-directory: ${{ github.workspace }}/../web-kit/packages/brand
+        run: node scripts/build-tokens.mjs --check
+
   build:
     name: Maven
     runs-on: ubuntu-latest

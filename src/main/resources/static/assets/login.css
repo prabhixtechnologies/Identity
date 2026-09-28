@@ -414,8 +414,8 @@ button.secondary {
 }
 
 button.secondary:hover {
-    border-color: var(--px-accent);
-    color: var(--px-accent);
+    border-color: var(--px-border-accent);
+    color: var(--px-accent-text);
 }
 
 button:focus-visible,
@@ -444,7 +444,7 @@ a:focus-visible {
 
 .whoami .change {
     flex: none;
-    color: var(--px-accent);
+    color: var(--px-accent-text);
     text-decoration: none;
     font-size: 0.82rem;
 }
@@ -490,13 +490,16 @@ a:focus-visible {
     color: var(--px-danger);
 }
 
+/* The generated subtle pair rather than a hand-mixed 12% tint. The mix was a guess at the same
+   thing, and unlike the pair it was never asserted against anything: these two tokens are held
+   to 4.5:1 against each other on every run of the contrast gate. */
 .alert.notice {
-    background: color-mix(in srgb, var(--px-accent) 12%, transparent);
-    color: var(--px-accent);
+    background: var(--px-accent-subtle);
+    color: var(--px-accent-subtle-ink);
 }
 
 .help { margin: 1.15rem 0 0; font-size: 0.9rem; color: var(--px-ink-muted); }
-.help a { color: var(--px-accent); text-decoration: none; }
+.help a { color: var(--px-accent-text); text-decoration: none; }
 .help a:hover { text-decoration: underline; }
 
 .footprint {

@@ -71,7 +71,7 @@
 }
 
 .ac-text-link:hover {
-    color: var(--px-accent);
+    color: var(--px-accent-text);
 }
 
 .ac-inline-form {
