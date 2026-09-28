@@ -489,6 +489,52 @@ a:focus-visible {
 
 .hint { margin: -0.5rem 0 1.1rem; color: var(--px-ink-muted); font-size: 0.82rem; }
 
+/*
+  The two states the password hint takes as it is typed.
+
+  Both use the -subtle-ink of their family rather than the solid colour. The solid warning amber
+  is a fill; as text on the card it sits near 2.5:1, which is the one pairing the token set does
+  not stand behind. The -subtle-ink is the member of each family that is asserted for text.
+*/
+.hint--warn { color: var(--px-warning-subtle-ink); }
+.hint--ok { color: var(--px-success-subtle-ink); }
+
+/*
+  The password field and its reveal button, as one control.
+
+  Positioned inside the field rather than beside it so the input keeps full width on a phone,
+  where this matters most. The input gets right padding equal to the button so a long password
+  scrolls under the label instead of behind it.
+*/
+.field-with-reveal { position: relative; display: block; }
+
+.field-with-reveal input { padding-right: 4.25rem; width: 100%; }
+
+.reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* Matches the input's own height rather than a fixed value, so the two stay aligned if the
+     field's padding or font size changes. */
+  height: 100%;
+  padding: 0 0.85rem;
+  border: 0;
+  background: none;
+  color: var(--px-accent-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--px-radius-md);
+}
+
+.reveal:hover { text-decoration: underline; }
+
+.reveal:focus-visible {
+  outline: 2px solid var(--px-focus);
+  outline-offset: -2px;
+}
+
 .follow-on {
     margin-top: 1.5rem;
     padding-top: 1.5rem;

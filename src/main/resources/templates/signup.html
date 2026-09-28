@@ -89,9 +89,18 @@
                    required inputmode="email" spellcheck="false" th:value="${email}">
 
             <label for="password">Password</label>
-            <input id="password" name="password" type="password"
-                   autocomplete="new-password" required minlength="10">
-            <p class="hint">At least 10 characters.</p>
+            <div class="field-with-reveal">
+                <input id="password" name="password" type="password"
+                       autocomplete="new-password" required minlength="10"
+                       aria-describedby="password-help password-caps">
+            </div>
+            <!--
+              The requirement is stated before it is tested, not after it is failed. A rule
+              someone learns by being rejected is a rule they meet on the second attempt.
+              Script turns this into live feedback; without it, it still says what is needed.
+            -->
+            <p class="hint" id="password-help" role="status">At least 10 characters.</p>
+            <p class="hint hint--warn" id="password-caps" role="status" hidden>Caps Lock is on.</p>
 
             <button type="submit" class="primary" data-testid="signup-submit">Create account</button>
         </form>
