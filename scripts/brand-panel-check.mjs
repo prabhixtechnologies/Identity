@@ -37,7 +37,20 @@ const over = (fg, alpha, bg) => {
 
 // Pull --px-accent / --px-accent-2 out of each selector block.
 function accentsFor(selector) {
-  const at = css.indexOf(selector + " {");
+  // The selector is one of possibly several in the prelude, so it can be followed by a comma
+  // rather than the brace. The dark blocks are written that way now that a brand can be
+  // declared below the root as well as on it:
+  //
+  //   [data-brand="oneops"][data-theme="dark"],
+  //   [data-theme="dark"] [data-brand="oneops"] { ... }
+  //
+  // Requiring `selector + " {"` stopped finding those and reported the block missing, which is
+  // the honest failure for a parser pinned to exact text - but the block is there, and this
+  // should read it. Requiring a comma or a brace after the match is also what keeps
+  // `[data-brand="x"]` from matching the start of `[data-brand="x"][data-theme="dark"]` and
+  // measuring the dark accents as if they were the light ones.
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const at = css.search(new RegExp(escaped + "\\s*[,{]"));
   if (at < 0) throw new Error("missing block: " + selector);
   const block = css.slice(at, css.indexOf("}", at));
   const grab = (name) => block.match(new RegExp(`${name}:\\s*(#[0-9a-f]{3,8})`, "i"))?.[1];
