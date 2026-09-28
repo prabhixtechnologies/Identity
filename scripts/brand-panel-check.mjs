@@ -45,14 +45,47 @@ function accentsFor(selector) {
 }
 
 const brands = ["technologies", "oneops", "admin", "mobistack", "mailroom"];
-const INK = "#f4f7fb";
-const MUTED_MIX = 0.78; // .stage-role sits at 78% over the panel
 const FOOT_MIX = 0.46; // .stage-foot, 12px, so 4.5:1 applies to it too
 
-// Candidate treatment: base tinted 12% by the accent, primary glow, secondary glow.
+/**
+ * The panel's own numbers, read out of the stylesheet that uses them.
+ *
+ * These were a hand-copied table, and the file said so: "nothing fails if they drift". That is
+ * a real failure mode for a checker — it reports PASS against numbers nobody is shipping, which
+ * is worse than not running, because it is believed. Parsed now, so changing `--panel-tint` in
+ * login.css changes what this measures, and a value this cannot find is an error rather than a
+ * silent fallback to the last one somebody typed here.
+ */
+const login = readFileSync(new URL("../src/main/resources/static/assets/login.css", import.meta.url), "utf8");
+
+function panelVars(selector) {
+  const at = login.indexOf(selector);
+  if (at < 0) throw new Error(`login.css has no ${selector} block`);
+  const block = login.slice(at, login.indexOf("}", at));
+  const grab = (name, pattern) => {
+    const found = block.match(new RegExp(`--panel-${name}:\\s*(${pattern})`, "i"));
+    if (!found) throw new Error(`login.css ${selector} does not set --panel-${name}`);
+    return found[1];
+  };
+  return {
+    base: grab("floor", "#[0-9a-f]{3,8}"),
+    tint: Number(grab("tint", "[\\d.]+(?=%)")) / 100,
+    glow1: Number(grab("glow", "[\\d.]+(?=%)")) / 100,
+    glow2: Number(grab("glow-2", "[\\d.]+(?=%)")) / 100,
+  };
+}
+
+// --panel-ink and --panel-ink-muted both live on the light block; the dark rules override only
+// the strengths, which is why there is one ink here and two sets of everything else.
+const base = panelVars(".stage-brand {");
+const INK = login.match(/--panel-ink:\s*(#[0-9a-f]{3,8})/i)?.[1];
+if (!INK) throw new Error("login.css does not set --panel-ink");
+const MUTED_MIX = Number(login.match(/--panel-ink-muted:[^;]*?([\d.]+)%/)?.[1]) / 100;
+if (!MUTED_MIX) throw new Error("login.css does not set --panel-ink-muted");
+
 const PLAN = {
-  light: { base: "#0b1017", tint: 0.38, glow1: 0.52, glow2: 0.22 },
-  dark: { base: "#05080d", tint: 0.26, glow1: 0.2, glow2: 0.12 },
+  light: base,
+  dark: panelVars('[data-theme="dark"] .stage-brand {'),
 };
 
 let worst = { ratio: 99 };
@@ -83,7 +116,8 @@ for (const mode of ["light", "dark"]) {
   }
 }
 console.log(`\n  worst: ${worst.ratio.toFixed(2)}:1  (${worst.brand} ${worst.mode} ${worst.what} on ${worst.bg})`);
-console.log(worst.ratio >= 4.5 ? "  PASS - every panel clears AA for body text" : "  FAIL");
+const pass = worst.ratio >= 4.5;
+console.log(pass ? "  PASS - every panel clears AA for body text" : "  FAIL - see the row marked under 4.5 above");
 
 // How much colour can the panel carry? Sweep tint and glow, keep the boldest pair that still
 // leaves the dimmed text at 4.5:1 with a little margin. Colourfulness is scored as the mean
@@ -140,3 +174,6 @@ for (const label of ["role", "foot"]) {
   }
   console.log(`    ${label}: ${need ? (need * 100).toFixed(0) + "%" : "not reachable even at 100%"}`);
 }
+
+// Exit code, so this can be a CI step rather than something to read.
+if (!pass) process.exit(1);

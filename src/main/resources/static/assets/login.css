@@ -41,7 +41,7 @@ body {
     padding: 8px 12px;
     border-radius: 10px;
     background: var(--px-accent);
-    color: var(--px-accent-ink, #fff);
+    color: var(--px-accent-ink);
     font-weight: 700;
     text-decoration: none;
     transform: translateY(-200%);
@@ -69,7 +69,10 @@ body {
     color: var(--px-ink);
     cursor: pointer;
     backdrop-filter: blur(10px);
-    box-shadow: 0 8px 24px rgba(12, 21, 36, 0.08);
+    /* The elevation scale rather than a fixed rgba. The literal here was the light-mode value
+       and stayed light-tinted in dark mode, where a shadow mixed towards blue-grey reads as a
+       halo rather than a shadow. The token carries a different value per mode. */
+    box-shadow: var(--px-elevation-2);
     transition: color var(--px-duration-fast) var(--px-ease-out), border-color var(--px-duration-fast) var(--px-ease-out), background var(--px-duration-fast) var(--px-ease-out), transform var(--px-duration-fast) var(--px-ease-out);
 }
 
@@ -119,6 +122,11 @@ body {
  */
 .stage-brand {
     display: none;
+    /* px-allow-literal: the panel is dark in both modes, so its ink cannot be --px-ink, which
+       flips. These four values are measured constants, not theme colours: scripts/
+       brand-panel-check.mjs composites the glows over this floor with this ink and reports the
+       worst contrast across five brands and two modes. Replacing them with tokens would change
+       the numbers that measurement was taken against. */
     --panel-ink: #f4f7fb;
     /* 78%, where the measured floor is 73%. Both dimmed texts on the panel share this one value
        so they cannot drift apart: .stage-foot used to be 46%, which measured 2.80:1 at worst and
@@ -128,6 +136,7 @@ body {
     /* Light-mode strengths. The dark rules override only these, so the gradients themselves are
        declared once and the two dark paths cannot diverge. */
     --panel-tint: 38%;
+    /* px-allow-literal: measured, as above. */
     --panel-floor: #0b1017;
     --panel-glow: 52%;
     --panel-glow-2: 22%;
@@ -144,6 +153,7 @@ body {
    over dark-mode accents, which is exactly the 3.17:1 case. */
 :root[data-theme="dark"] .stage-brand {
     --panel-tint: 26%;
+    /* px-allow-literal: measured, as above. */
     --panel-floor: #05080d;
     --panel-glow: 20%;
     --panel-glow-2: 12%;
@@ -153,6 +163,7 @@ body {
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) .stage-brand {
         --panel-tint: 26%;
+        /* px-allow-literal: measured, as above. */
         --panel-floor: #05080d;
         --panel-glow: 20%;
         --panel-glow-2: 12%;
@@ -199,10 +210,16 @@ body {
         position: absolute;
         inset: 0;
         pointer-events: none;
+        /* Mixed from the panel's own ink rather than a fixed white, so the hairlines stay tied
+           to the thing they are drawn on. They were white at 4.5%, which is what the panel ink
+           very nearly is — but only by coincidence, and a change to --panel-ink would have left
+           the grid behind. */
         background-image:
-            linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+            linear-gradient(color-mix(in srgb, var(--panel-ink) 4.5%, transparent) 1px, transparent 1px),
+            linear-gradient(90deg, color-mix(in srgb, var(--panel-ink) 4.5%, transparent) 1px, transparent 1px);
         background-size: 56px 56px;
+        /* px-allow-literal: a mask, not a colour. Only the alpha channel is read, so the hue is
+           irrelevant and black is the conventional way to write "fully opaque here". */
         mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85), transparent 78%);
     }
 
@@ -299,7 +316,9 @@ body {
     border: 1px solid var(--px-border);
     border-radius: calc(var(--px-radius-md) + 0.45rem);
     padding: 2rem 1.7rem 1.55rem;
-    box-shadow: 0 24px 60px rgba(12, 21, 36, 0.08);
+    /* As above: the top of the elevation scale, so the card's shadow deepens in dark mode
+       instead of keeping its light-mode tint. */
+    box-shadow: var(--px-elevation-5);
 }
 
 .brand-lockup {
