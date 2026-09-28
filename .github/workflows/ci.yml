@@ -36,6 +36,17 @@ jobs:
         working-directory: ${{ github.workspace }}/../web-kit/packages/brand
         run: node scripts/build-tokens.mjs --check
 
+      # Both gates cover this repository's own stylesheets and templates. They are hand-written
+      # CSS served straight to a browser rather than anything a bundler touches, which is where a
+      # stale hex or a mangled character survives longest — and these are the hosted sign-in
+      # pages, so it is the first screen anyone sees.
+      - name: No hard-coded colours
+        working-directory: ${{ github.workspace }}/../web-kit/packages/brand
+        run: node scripts/check-literals.mjs
+
+      - name: No double-encoded text
+        working-directory: ${{ github.workspace }}/../web-kit/packages/brand
+        run: node scripts/check-mojibake.mjs
   build:
     name: Maven
     runs-on: ubuntu-latest
