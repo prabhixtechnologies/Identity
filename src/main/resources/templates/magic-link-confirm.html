@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <!--
-  data-brand selects the generated token theme in prabhix-tokens.css. Identity is the house
-  surface, so it carries the parent Prabhix Technologies identity (cyan + indigo) rather than
-  any one product's. Client-aware branding — theming the page to whichever product is signing
-  you in — is tracked in Infra/docs/UX-PLAN.md, Phase 5.
+  data-brand selects the generated token theme in prabhix-tokens.css, and SignInBrand picks it
+  from the client_id on the authorization request that was waiting — falling back to the house
+  brand when the link is opened somewhere that never started the sign-in.
 
   This page used .login-page / .login-card / .btn-primary, none of which exist in any Identity
   stylesheet, so it rendered as raw browser HTML at the exact moment a user is deciding whether
   to trust a link from their inbox. It now uses the same .stage / .shell / .card structure as
   login.html, so it looks like the sign-in page it is completing.
 -->
-<html lang="en" xmlns:th="http://www.thymeleaf.org" data-brand="technologies">
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:attr="data-brand=${brand} ?: 'technologies'" data-brand="technologies">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

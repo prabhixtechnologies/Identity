@@ -61,6 +61,7 @@ public class LoginController {
     private final HostedSignIn hostedSignIn;
     private final SignupService signup;
     private final TrustedClientIpResolver clientIp;
+    private final SignInBrand brands;
 
     @GetMapping("/login")
     public String login(@RequestParam(required = false) String error,
@@ -75,6 +76,7 @@ public class LoginController {
                         @RequestParam(required = false) String email,
                         @RequestParam(required = false) String number,
                         HttpServletRequest request,
+                        HttpServletResponse response,
                         Model model) {
         if (clear != null) {
             LoginChallengeState.clear(request);
@@ -123,6 +125,7 @@ public class LoginController {
         model.addAttribute("whatsappEnabled", whatsApp.enabled());
         model.addAttribute("forgotPasswordUrl", properties.urls().console() + "/forgot-password");
         model.addAttribute("signupAvailable", signup.available());
+        model.addAttribute("brand", brands.forRequest(request, response));
         return "login";
     }
 
@@ -155,11 +158,17 @@ public class LoginController {
      * completes on a CSRF-protected POST to {@link #confirmLink}.
      */
     @GetMapping("/login/link")
-    public String previewLink(@RequestParam String token, Model model) {
+    public String previewLink(@RequestParam String token,
+                              HttpServletRequest request,
+                              HttpServletResponse response,
+                              Model model) {
         try {
             MagicLinkPreview preview = passwordless.previewMagicLink(token);
             model.addAttribute("token", token);
             model.addAttribute("destination", maskDestination(preview.destination()));
+            // Falls back to the house brand when the link is opened in a browser that never
+            // started the sign-in — a different device, or a mail client's own web view.
+            model.addAttribute("brand", brands.forRequest(request, response));
             return "magic-link-confirm";
         } catch (ApiException ex) {
             log.debug("Magic link rejected: {}", ex.getMessage());

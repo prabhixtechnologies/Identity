@@ -98,8 +98,66 @@ body {
     padding: 4.75rem 1.25rem 2rem;
 }
 
+/*
+ * The brand panel only exists on wide screens — below 960px the card is the whole page.
+ *
+ * Its palette is declared here rather than inside that media query because the panel's own
+ * children (.stage-role, .stage-foot, the list rules) are declared at this level too, and an
+ * undefined custom property does not fall back to the declaration above it: it resolves to the
+ * property's initial value, which for `color` is black on a near-black panel.
+ *
+ * The panel stays dark in both modes, so its ink is fixed rather than following --px-ink, and
+ * its colour is mixed from the calling product's accent pair: Mailroom's sign-in is clay,
+ * MobiStack's ochre, OneOps indigo. SignInBrand picks which, from the pending authorization
+ * request.
+ *
+ * Mixed `in srgb` deliberately — that is the space scripts/brand-panel-check.mjs composites in,
+ * so these percentages are the ones it measured rather than near-misses. They sit just inside
+ * the ceiling that script sweeps for: the boldest tint and glow that still leave the dimmed
+ * text above 4.8:1. Worst case across all five brands and both modes is 4.91:1. Re-run it
+ * before changing any number here.
+ */
 .stage-brand {
     display: none;
+    --panel-ink: #f4f7fb;
+    /* 78%, where the measured floor is 73%. Both dimmed texts on the panel share this one value
+       so they cannot drift apart: .stage-foot used to be 46%, which measured 2.80:1 at worst and
+       2.96:1 on the cyan panel that shipped — a failure that predates the per-brand glows.
+       Hierarchy between the two comes from size, not from opacity. */
+    --panel-ink-muted: color-mix(in srgb, var(--panel-ink) 78%, transparent);
+    /* Light-mode strengths. The dark rules override only these, so the gradients themselves are
+       declared once and the two dark paths cannot diverge. */
+    --panel-tint: 38%;
+    --panel-floor: #0b1017;
+    --panel-glow: 52%;
+    --panel-glow-2: 22%;
+    --panel-edge: transparent;
+}
+
+/* Lower strengths, because --px-accent is itself a light tint once the dark theme is on: the
+   light-mode 52% would wash the panel out from under its own text. MobiStack is the worst case —
+   its dark accent is a bright ochre, and at the light strength the headline measures 3.17:1.
+
+   Stated twice because login.js only sets data-theme when it runs, and this page is meant to
+   work without it. The second rule is the no-JS path: dark tokens come from the token file's own
+   prefers-color-scheme block, and with no match here the panel would keep light-mode strengths
+   over dark-mode accents, which is exactly the 3.17:1 case. */
+:root[data-theme="dark"] .stage-brand {
+    --panel-tint: 26%;
+    --panel-floor: #05080d;
+    --panel-glow: 20%;
+    --panel-glow-2: 12%;
+    --panel-edge: color-mix(in srgb, var(--px-accent-2) 22%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .stage-brand {
+        --panel-tint: 26%;
+        --panel-floor: #05080d;
+        --panel-glow: 20%;
+        --panel-glow-2: 12%;
+        --panel-edge: color-mix(in srgb, var(--px-accent-2) 22%, transparent);
+    }
 }
 
 .shell {
@@ -128,11 +186,12 @@ body {
         gap: 2.5rem;
         overflow: hidden;
         padding: 2.4rem 3.25rem 1.8rem;
-        color: #f4f7fb;
+        color: var(--panel-ink);
         background:
-            radial-gradient(ellipse 90% 55% at 0% 100%, rgba(14, 116, 144, 0.72), transparent 62%),
-            radial-gradient(ellipse 55% 42% at 100% 0%, rgba(34, 211, 238, 0.18), transparent 58%),
-            #0c1524;
+            radial-gradient(ellipse 90% 55% at 0% 100%, color-mix(in srgb, var(--px-accent) var(--panel-glow), transparent), transparent 62%),
+            radial-gradient(ellipse 55% 42% at 100% 0%, color-mix(in srgb, var(--px-accent-2) var(--panel-glow-2), transparent), transparent 58%),
+            color-mix(in srgb, var(--px-accent) var(--panel-tint), var(--panel-floor));
+        box-shadow: inset -1px 0 0 var(--panel-edge);
     }
 
     .stage-brand::before {
@@ -150,14 +209,6 @@ body {
     .stage-brand > * {
         position: relative;
         z-index: 1;
-    }
-
-    :root[data-theme="dark"] .stage-brand {
-        background:
-            radial-gradient(ellipse 90% 55% at 0% 100%, rgba(14, 116, 144, 0.45), transparent 62%),
-            radial-gradient(ellipse 50% 40% at 100% 0%, rgba(34, 211, 238, 0.12), transparent 58%),
-            #03070c;
-        box-shadow: inset -1px 0 0 rgba(34, 211, 238, 0.14);
     }
 
     .shell {
@@ -186,7 +237,7 @@ body {
 }
 
 .stage-brand .brand {
-    color: #f7fafc;
+    color: var(--panel-ink);
     font-size: 1.45rem;
 }
 
@@ -201,7 +252,7 @@ body {
     font-weight: 560;
     letter-spacing: -0.045em;
     line-height: 0.96;
-    color: #f7fafc;
+    color: var(--panel-ink);
 }
 
 .stage-products {
@@ -217,28 +268,28 @@ body {
     align-items: baseline;
     gap: 1.5rem;
     padding: 0.85rem 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    border-top: 1px solid color-mix(in srgb, var(--panel-ink) 14%, transparent);
     font-size: 0.95rem;
 }
 
 .stage-products li:last-child {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-ink) 14%, transparent);
 }
 
 .stage-product {
-    color: #fff;
+    color: var(--panel-ink);
     font-weight: 650;
     letter-spacing: -0.02em;
 }
 
 .stage-role {
-    color: rgba(165, 243, 252, 0.78);
+    color: var(--panel-ink-muted);
     font-size: 0.82rem;
 }
 
 .stage-foot {
     margin: 0;
-    color: rgba(255, 255, 255, 0.46);
+    color: var(--panel-ink-muted);
     font-size: 0.75rem;
     letter-spacing: 0.04em;
 }

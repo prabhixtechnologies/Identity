@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!--
-  data-brand selects the generated token theme in prabhix-tokens.css. Identity is the house
-  surface, so it carries the parent Prabhix Technologies identity (cyan + indigo) rather than
-  any one product's. Client-aware branding — theming the page to whichever product is signing
-  you in — is tracked in Infra/docs/UX-PLAN.md, Phase 5.
+  data-brand selects the generated token theme in prabhix-tokens.css. The house brand is the
+  right one here, unlike on login and signup: signing out ends the session for every product at
+  once, so wearing the colours of whichever one you happened to click it from would understate
+  what the button does. There is also no authorization request pending at logout for SignInBrand
+  to read — only a return_to URL, and mapping those to brands would duplicate the client config.
 
   This page used .login-page / .login-card / .btn-primary, none of which exist in any Identity
   stylesheet, so it rendered as raw browser HTML in the middle of the auth flow. It now uses the

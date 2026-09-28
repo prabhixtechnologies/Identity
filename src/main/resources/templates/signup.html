@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <!--
-  data-brand selects the generated token theme in prabhix-tokens.css. Identity is the house
-  surface, so it carries the parent Prabhix Technologies identity (cyan + indigo) rather than
-  any one product's. Client-aware branding — theming the page to whichever product is signing
-  you in — is tracked in Infra/docs/UX-PLAN.md, Phase 5.
+  data-brand selects the generated token theme in prabhix-tokens.css, and SignInBrand picks it
+  from the client_id on the authorization request that was waiting. Signing up from MobiStack
+  stays in MobiStack's ochre and teal rather than changing colour between the two pages.
 -->
-<html lang="en" xmlns:th="http://www.thymeleaf.org" data-brand="technologies">
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:attr="data-brand=${brand} ?: 'technologies'" data-brand="technologies">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

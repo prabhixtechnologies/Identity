@@ -41,6 +41,7 @@ public class SignupController {
 
     private final SignupService signup;
     private final HostedSignIn hostedSignIn;
+    private final SignInBrand brands;
     private final HttpSessionRequestCache savedRequests = new HttpSessionRequestCache();
 
     @GetMapping("/signup")
@@ -59,6 +60,7 @@ public class SignupController {
         // take a password, create an account, and then withdraw it. The page says so instead.
         // MobiStack does not need that platform call, so its signup stays open without it.
         model.addAttribute("available", shopLater || signup.available());
+        model.addAttribute("brand", brands.forRequest(request, response));
         return "signup";
     }
 
@@ -85,6 +87,7 @@ public class SignupController {
             model.addAttribute("organization", "");
             model.addAttribute("shopLater", false);
             model.addAttribute("available", signup.available());
+            model.addAttribute("brand", brands.forRequest(request, response));
             return "signup";
         }
         try {
@@ -106,6 +109,7 @@ public class SignupController {
             model.addAttribute("organization", organization);
             model.addAttribute("shopLater", shopLater);
             model.addAttribute("available", shopLater || signup.available());
+            model.addAttribute("brand", brands.forRequest(request, response));
             return "signup";
         }
     }

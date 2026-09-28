@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <!--
-  data-brand selects the generated token theme in prabhix-tokens.css. Identity is the house
-  surface, so it carries the parent Prabhix Technologies identity (cyan + indigo) rather than
-  any one product's. Client-aware branding — theming the page to whichever product is signing
-  you in — is tracked in Infra/docs/UX-PLAN.md, Phase 5.
+  data-brand selects the generated token theme in prabhix-tokens.css, and SignInBrand picks it
+  from the client_id on the authorization request that was waiting when this page opened. Signing
+  in to Mailroom shows Mailroom's clay and teal; visiting /login directly shows the house brand.
+
+  The value is one of five literals from an allowlist, never the client_id itself — that arrives
+  from a query string, and echoing it here would put attacker-chosen text into the document.
 -->
-<html lang="en" xmlns:th="http://www.thymeleaf.org" data-brand="technologies">
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:attr="data-brand=${brand} ?: 'technologies'" data-brand="technologies">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
