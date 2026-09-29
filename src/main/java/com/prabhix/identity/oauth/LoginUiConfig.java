@@ -82,7 +82,7 @@ public class LoginUiConfig {
     }
 
     /**
-     * Bare POSTs to {@code /logout} (for example from {@code @prabhix/oidc-client} without an
+     * Bare POSTs to {@code /logout} (for example from {@code @prabhixtechnologies/oidc-client} without an
      * {@code id_token_hint}) fail CSRF and land on the confirmation page instead of returning 403.
      */
     private static AccessDeniedHandler logoutAwareAccessDenied() {

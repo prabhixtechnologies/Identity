@@ -34,9 +34,9 @@ Two paths coexist:
 | --- | --- |
 | `GET /logout` | Hosted sign-out when no OIDC `id_token_hint` is available. **Does not sign anyone out** — it renders a confirmation page with a CSRF token. |
 | `POST /logout` | Completes hosted sign-out. Requires the CSRF token from the confirmation page (or any same-origin form that includes it). |
-| `GET` or `POST /connect/logout` | RP-initiated OIDC logout when an `id_token_hint` is available (`@prabhix/oidc-client` uses this when it still holds the id token). Unchanged. |
+| `GET` or `POST /connect/logout` | RP-initiated OIDC logout when an `id_token_hint` is available (`@prabhixtechnologies/oidc-client` uses this when it still holds the id token). Unchanged. |
 
-**Client contract:** `@prabhix/oidc-client` should navigate to `GET ${issuer}/logout` (or assign `window.location`) when there is no id token. A bare `POST /logout` without CSRF is rejected and redirected back to the confirmation page rather than signing the user out.
+**Client contract:** `@prabhixtechnologies/oidc-client` should navigate to `GET ${issuer}/logout` (or assign `window.location`) when there is no id token. A bare `POST /logout` without CSRF is rejected and redirected back to the confirmation page rather than signing the user out.
 
 Optional `return_to` on hosted logout is validated like the account page and only redirects to registered client URLs after a successful POST.
 

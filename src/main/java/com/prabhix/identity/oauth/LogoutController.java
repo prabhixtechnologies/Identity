@@ -15,7 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * Hosted sign-out for products that share the identity session cookie.
  *
  * <p>{@code GET /logout} never changes server state: it renders a confirmation page with a CSRF token.
- * {@code POST /logout} completes sign-out. Clients such as {@code @prabhix/oidc-client} should navigate
+ * {@code POST /logout} completes sign-out. Clients such as {@code @prabhixtechnologies/oidc-client} should navigate
  * with {@code GET} (or open this page) rather than posting a bare form without a CSRF token.
  *
  * <p>RP-initiated logout continues to use {@code /connect/logout} on the authorization-server chain.
