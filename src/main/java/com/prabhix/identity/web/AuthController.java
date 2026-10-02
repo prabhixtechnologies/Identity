@@ -34,7 +34,6 @@ import com.prabhix.identity.web.AuthDtos.PhoneRequest;
 import com.prabhix.identity.web.AuthDtos.PhoneVerifyConfirmRequest;
 import com.prabhix.identity.web.AuthDtos.RefreshRequest;
 import com.prabhix.identity.web.AuthDtos.RegisterRequest;
-import com.prabhix.identity.provisioning.SignupService;
 import com.prabhix.identity.web.AuthDtos.SessionListResponse;
 import com.prabhix.identity.web.AuthDtos.SessionView;
 import com.prabhix.identity.web.AuthDtos.TokenResponse;
@@ -79,7 +78,6 @@ public class AuthController {
     private final WhatsAppAuthService whatsApp;
     private final EmailVerificationService emailVerification;
     private final GoogleSsoService googleSso;
-    private final SignupService signup;
     private final AuthEventRecorder events;
     private final TrustedClientIpResolver clientIpResolver;
 
@@ -99,25 +97,10 @@ public class AuthController {
     public TokenResponse register(@Valid @RequestBody RegisterRequest request,
                                   HttpServletRequest httpRequest,
                                   HttpServletResponse httpResponse) {
-        String organizationName = request.organizationName();
-        IdentityUser user;
-        try {
-            user = organizationName == null || organizationName.isBlank()
-                    ? credentials.create(request.email(), request.password(), request.fullName())
-                    : signup.signUp(request.email(), request.password(), request.fullName(),
-                            organizationName.trim());
-        } catch (ApiException ex) {
-            if (ex.getCode() == ErrorCode.ALREADY_EXISTS) {
-                throw ApiException.of(ErrorCode.INVALID_CREDENTIALS,
-                        "Unable to register with these details");
-            }
-            throw ex;
-        }
-
-        TokenResponse response = signIn.complete(user, device(request.deviceId(), request.deviceName(),
-                request.deviceType(), httpRequest), List.of("pwd"));
-        cookies.issue(httpResponse, response.sessionId());
-        return response;
+        // Registration cannot mint a token before mailbox ownership is proved. All current clients
+        // already use OIDC prompt=create, whose hosted form includes the compulsory OTP step.
+        throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED,
+                "Create the account in secure sign-up so we can verify the email first.");
     }
 
     @PostMapping("/login")

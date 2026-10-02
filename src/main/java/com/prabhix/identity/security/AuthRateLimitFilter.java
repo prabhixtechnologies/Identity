@@ -127,12 +127,13 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         if (!"POST".equalsIgnoreCase(method)) {
             return Kind.NONE;
         }
-        if ("/login".equals(path) || path.startsWith("/login/") || "/signup".equals(path)) {
+        if ("/login".equals(path) || path.startsWith("/login/")
+                || "/signup".equals(path) || path.startsWith("/signup/")) {
             if (path.contains("/verify") || path.endsWith("/google") || "/login".equals(path)) {
                 return Kind.LOGIN;
             }
             if (path.contains("/link") || path.contains("/code") || path.contains("/phone")
-                    || path.contains("/whatsapp")) {
+                    || path.contains("/whatsapp") || path.startsWith("/signup")) {
                 return Kind.ISSUE;
             }
         }

@@ -47,7 +47,17 @@ public class SignupService {
      *     uses the blank form: the shop is created in MobiStack after the account exists.
      */
     public IdentityUser signUp(String email, String password, String fullName, String organizationName) {
-        IdentityUser user = credentials.create(email, password, fullName);
+        IdentityUser user = createAccount(email, password, fullName);
+        return provision(user, organizationName);
+    }
+
+    /** Creates credentials first; hosted signup does not provision or sign in until email OTP passes. */
+    public IdentityUser createAccount(String email, String password, String fullName) {
+        return credentials.create(email, password, fullName);
+    }
+
+    /** Completes the product workspace after the address has been verified. */
+    public IdentityUser provision(IdentityUser user, String organizationName) {
         // MobiStack creates the shop after this account exists. A workspace name here would open an
         // OneOps organization, which is neither that shop nor the fitment group.
         if (organizationName == null || organizationName.isBlank()) {
@@ -60,6 +70,11 @@ public class SignupService {
             throw ex;
         }
         return user;
+    }
+
+    /** Frees an address when its verification email or later provisioning could not complete. */
+    public void withdrawIncomplete(IdentityUser user) {
+        withdraw(user);
     }
 
     /**

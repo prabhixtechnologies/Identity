@@ -145,6 +145,10 @@ public class CredentialService {
                             "failedAttempts", user.getFailedLoginAttempts()));
             throw invalidCredentials();
         }
+        if (!user.isEmailVerified()) {
+            throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED,
+                    "Verify your email with the code we sent before signing in.");
+        }
 
         resetLoginFailures(user);
         return user;

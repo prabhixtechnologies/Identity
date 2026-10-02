@@ -56,6 +56,16 @@ public class AuthMailer {
                 "If you did not ask for this, somebody may have your password. Change it."));
     }
 
+    public void sendSignupOtp(String to, String name, String code, long expiryMinutes) {
+        send(to, "Confirm your Prabhix account: " + code, body(
+                "Hello " + escape(name) + ",",
+                "Enter this code to finish creating your account. It expires in "
+                        + expiryMinutes + " minutes.",
+                "<p style=\"font-size:32px;letter-spacing:8px;font-weight:600;margin:24px 0\">"
+                        + escape(code) + "</p>",
+                "If you did not create this account, you can ignore this email."));
+    }
+
     public void sendPasswordReset(String to, String name, String link, long expiryMinutes) {
         send(to, "Reset your password", body(
                 "Hello " + escape(name) + ",",

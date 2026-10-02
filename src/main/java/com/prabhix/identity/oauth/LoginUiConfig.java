@@ -38,7 +38,7 @@ public class LoginUiConfig {
                 // with a form, so they need a session to hold the pending authorization request (or
                 // the return_to) and a CSRF token in the form, and they need the CSP below or the
                 // gateway's floor stops them submitting at all.
-                .securityMatcher("/login", "/login/**", "/signup", "/oauth2/consent", "/assets/**",
+                .securityMatcher("/login", "/login/**", "/signup", "/signup/**", "/oauth2/consent", "/assets/**",
                         "/logout", "/account", "/account/**")
                 .cors(Customizer.withDefaults())
                 // Default XOR handler + deferred token is a known 403 on the password POST in
@@ -47,7 +47,7 @@ public class LoginUiConfig {
                 .csrf(csrf -> csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 .exceptionHandling(ex -> ex.accessDeniedHandler(logoutAwareAccessDenied()))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/login", "/login/**", "/signup", "/assets/**", "/logout").permitAll()
+                        .requestMatchers("/login", "/login/**", "/signup", "/signup/**", "/assets/**", "/logout").permitAll()
                         // Token in the query string is the proof, same as /login/link.
                         .requestMatchers("/account/email/confirm").permitAll()
                         .anyRequest().authenticated())

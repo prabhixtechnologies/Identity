@@ -16,10 +16,8 @@
     <link rel="stylesheet" th:href="@{/assets/login.css}">
 </head>
 <!--
-  One step, unlike signing in.
-
-  Signing in is two steps because the second depends on the first: which methods to offer depends on
-  the address. Nothing here depends on anything, and splitting it would only add a page to abandon.
+  First of two short steps: details here, then the emailed OTP. The split is security rather than
+  ceremony: the account must not become a session until mailbox ownership has been proved.
 
   Four fields and no more. Every one of them is needed to end up with a usable account: a name for the
   membership, an address to sign in with, a password, and something to call the workspace. Anything

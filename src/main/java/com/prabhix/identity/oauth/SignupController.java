@@ -2,6 +2,7 @@ package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.provisioning.SignupService;
+import com.prabhix.identity.provisioning.SignupVerificationService;
 import com.prabhix.identity.user.IdentityUser;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Creating an account, on the same origin as signing into one.
@@ -40,9 +42,12 @@ public class SignupController {
             "prabhix-mobistack", "prabhix-mobistack-android");
 
     private final SignupService signup;
+    private final SignupVerificationService verification;
     private final HostedSignIn hostedSignIn;
     private final SignInBrand brands;
     private final HttpSessionRequestCache savedRequests = new HttpSessionRequestCache();
+    private static final String PENDING_USER = "signup.pending.user";
+    private static final String PENDING_EMAIL = "signup.pending.email";
 
     @GetMapping("/signup")
     public String form(@RequestParam(required = false) String email,
@@ -91,12 +96,20 @@ public class SignupController {
             return "signup";
         }
         try {
-            IdentityUser user = signup.signUp(email, password, name, shopLater ? null : organization);
-            // A password was typed, so that is the factor — the same one form login would record.
-            hostedSignIn.completeAndRedirect(user, FactorGrantedAuthority.PASSWORD_AUTHORITY,
-                    request, response);
-            // Nothing to render: completeAndRedirect has already written the redirect.
-            return null;
+            IdentityUser user = signup.createAccount(email, password, name);
+            try {
+                verification.send(user, request.getRemoteAddr());
+                // Provision only after mail was accepted, so an undeliverable OTP cannot leave an
+                // orphan workspace. It happens before the code is entered so abandoning this tab can
+                // be recovered through the normal emailed-code sign-in without losing the workspace.
+                signup.provision(user, shopLater ? null : organization.trim());
+            } catch (RuntimeException incompleteSignup) {
+                signup.withdrawIncomplete(user);
+                throw incompleteSignup;
+            }
+            request.getSession().setAttribute(PENDING_USER, user.getId());
+            request.getSession().setAttribute(PENDING_EMAIL, user.getEmail());
+            return verificationPage(user.getEmail(), null, request, response, model);
         } catch (ApiException ex) {
             // Passed through rather than replaced by one generic line, unlike the login page. The
             // reasons here are all things the person can act on — the address is taken, the password is
@@ -112,6 +125,65 @@ public class SignupController {
             model.addAttribute("brand", brands.forRequest(request, response));
             return "signup";
         }
+    }
+
+    @PostMapping("/signup/verify")
+    public String verify(@RequestParam String code,
+                         HttpServletRequest request,
+                         HttpServletResponse response,
+                         Model model) throws IOException, ServletException {
+        UUID userId = pendingUser(request);
+        String email = (String) request.getSession().getAttribute(PENDING_EMAIL);
+        if (userId == null || email == null) {
+            return "redirect:/signup";
+        }
+        try {
+            IdentityUser user = verification.verify(userId, email, code);
+            clearPending(request);
+            // The OTP is the factor that activated this account; the password was only chosen.
+            hostedSignIn.completeAndRedirect(
+                    user, FactorGrantedAuthority.OTT_AUTHORITY, request, response);
+            return null;
+        } catch (ApiException ex) {
+            return verificationPage(email, ex.getMessage(), request, response, model);
+        }
+    }
+
+    @PostMapping("/signup/resend")
+    public String resend(HttpServletRequest request,
+                         HttpServletResponse response,
+                         Model model) {
+        UUID userId = pendingUser(request);
+        String email = (String) request.getSession().getAttribute(PENDING_EMAIL);
+        if (userId == null || email == null) {
+            return "redirect:/signup";
+        }
+        try {
+            verification.resend(userId, request.getRemoteAddr());
+            model.addAttribute("notice", "A new code was sent.");
+            return verificationPage(email, null, request, response, model);
+        } catch (ApiException ex) {
+            return verificationPage(email, ex.getMessage(), request, response, model);
+        }
+    }
+
+    private String verificationPage(String email, String error,
+                                    HttpServletRequest request, HttpServletResponse response,
+                                    Model model) {
+        model.addAttribute("email", email);
+        model.addAttribute("error", error);
+        model.addAttribute("brand", brands.forRequest(request, response));
+        return "signup-verify";
+    }
+
+    private UUID pendingUser(HttpServletRequest request) {
+        Object value = request.getSession().getAttribute(PENDING_USER);
+        return value instanceof UUID id ? id : null;
+    }
+
+    private void clearPending(HttpServletRequest request) {
+        request.getSession().removeAttribute(PENDING_USER);
+        request.getSession().removeAttribute(PENDING_EMAIL);
     }
 
     /** MobiStack's authorize request is what was saved before this page opened. */

@@ -58,6 +58,7 @@ class CredentialServiceTest {
         user.setId(UUID.randomUUID());
         user.setEmail("owner@example.com");
         user.setFullName("Demo Owner");
+        user.setEmailVerifiedAt(Instant.now());
         if (rawPassword != null) {
             user.setPasswordHash(new BCryptPasswordEncoder(4).encode(rawPassword));
         }
@@ -133,6 +134,16 @@ class CredentialServiceTest {
         // "no password set" could be read as "any password accepted".
         assertThat(catchApi(() -> service.authenticate("owner@example.com", "anything")).getCode())
                 .isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    @DisplayName("the right password cannot bypass signup email verification")
+    void unverifiedAccountCannotUsePassword() {
+        IdentityUser user = existing(PASSWORD);
+        user.setEmailVerifiedAt(null);
+
+        assertThat(catchApi(() -> service.authenticate("owner@example.com", PASSWORD)).getCode())
+                .isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
     }
 
     @Test
