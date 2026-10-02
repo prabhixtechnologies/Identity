@@ -145,12 +145,7 @@ body {
 
 /* Lower strengths, because --px-accent is itself a light tint once the dark theme is on: the
    light-mode 52% would wash the panel out from under its own text. MobiStack is the worst case —
-   its dark accent is a bright ochre, and at the light strength the headline measures 3.17:1.
-
-   Stated twice because login.js only sets data-theme when it runs, and this page is meant to
-   work without it. The second rule is the no-JS path: dark tokens come from the token file's own
-   prefers-color-scheme block, and with no match here the panel would keep light-mode strengths
-   over dark-mode accents, which is exactly the 3.17:1 case. */
+   its dark accent is a bright ochre, and at the light strength the headline measures 3.17:1. */
 :root[data-theme="dark"] .stage-brand {
     --panel-tint: 26%;
     /* px-allow-literal: measured, as above. */
@@ -158,17 +153,6 @@ body {
     --panel-glow: 20%;
     --panel-glow-2: 12%;
     --panel-edge: color-mix(in srgb, var(--px-accent-2) 22%, transparent);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) .stage-brand {
-        --panel-tint: 26%;
-        /* px-allow-literal: measured, as above. */
-        --panel-floor: #05080d;
-        --panel-glow: 20%;
-        --panel-glow-2: 12%;
-        --panel-edge: color-mix(in srgb, var(--px-accent-2) 22%, transparent);
-    }
 }
 
 .shell {

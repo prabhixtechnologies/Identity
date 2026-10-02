@@ -23,9 +23,9 @@
                 return stored;
             }
         } catch (ignore) {
-            // Private mode can refuse localStorage; fall through to system preference.
+            // Private mode can refuse localStorage; the page stays on the light default.
         }
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        return "light";
     }
 
     function applyTheme(theme) {
