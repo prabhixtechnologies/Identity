@@ -1,6 +1,8 @@
 package com.prabhix.identity.integration;
 
 import com.prabhix.identity.user.CredentialService;
+import com.prabhix.identity.user.IdentityUser;
+import com.prabhix.identity.user.IdentityUserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -16,6 +18,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -67,6 +71,9 @@ class OidcProviderIntegrationTest {
 
     @Autowired
     private CredentialService credentials;
+
+    @Autowired
+    private IdentityUserRepository users;
 
     @Test
     @DisplayName("discovery advertises the authorization code flow at the configured issuer")
@@ -129,13 +136,16 @@ class OidcProviderIntegrationTest {
     void hostedPasswordLoginEstablishesDurableSession() throws Exception {
         String email = "durable-browser-session@example.com";
         String password = "correct-horse-battery-staple";
-        credentials.create(email, password, "Durable Browser");
+        IdentityUser user = credentials.create(email, password, "Durable Browser");
+        user.setEmailVerifiedAt(Instant.now());
+        users.save(user);
 
         Cookie sessionCookie = mvc.perform(post("/login")
                         .with(csrf())
                         .param("username", email)
                         .param("password", password))
                 .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("http://localhost:5173"))
                 .andExpect(header().stringValues("Set-Cookie",
                         org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.allOf(
                                 org.hamcrest.Matchers.containsString("pbx_session="),
