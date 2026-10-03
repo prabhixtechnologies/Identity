@@ -233,6 +233,19 @@ class SessionServiceTest {
     }
 
     @Test
+    @DisplayName("a revoked session cannot receive a new browser cookie")
+    void revokedSessionCannotBeRebound() {
+        DeviceSession session = service.openOrReuse(UUID.randomUUID(), web());
+        service.revoke(session.getId(), "logout");
+
+        assertThatThrownBy(() -> service.bindCookie(
+                session.getId(), Secrets.sha256("replacement"), Instant.now().plusSeconds(3600)))
+                .isInstanceOf(ApiException.class)
+                .satisfies(thrown ->
+                        assertThat(((ApiException) thrown).getCode()).isEqualTo(ErrorCode.TOKEN_REVOKED));
+    }
+
+    @Test
     @DisplayName("revoking somebody else's session reads as not found, not forbidden")
     void cannotRevokeAnotherUsersSession() {
         DeviceSession theirs = service.openOrReuse(UUID.randomUUID(), web());

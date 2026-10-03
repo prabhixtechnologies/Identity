@@ -59,14 +59,29 @@ public class SessionCookieService {
             return;
         }
         try {
-            String raw = Secrets.token();
-            Instant expiresAt = Instant.now().plus(cookieTtl());
-            sessions.bindCookie(sessionId, Secrets.sha256(raw), expiresAt);
-            response.addHeader(HttpHeaders.SET_COOKIE, build(raw, cookieTtl()).toString());
+            issueRequired(response, sessionId);
         } catch (RuntimeException ex) {
             log.warn("Could not establish the shared session cookie for session {}: {}",
                     sessionId, ex.getMessage());
         }
+    }
+
+    /**
+     * Issues the cookie as a required part of hosted browser authentication.
+     *
+     * <p>Direct API sign-in already has an access and refresh token when it calls {@link #issue}, so
+     * preserving that successful response if this enhancement fails is safe. Hosted OIDC has no
+     * JavaScript refresh token by design; without this cookie it would create a half-session that
+     * cannot survive access-token expiry. That path therefore fails closed through this method.
+     */
+    public void issueRequired(HttpServletResponse response, UUID sessionId) {
+        if (sessionId == null) {
+            throw new IllegalArgumentException("A session id is required for a browser cookie");
+        }
+        String raw = Secrets.token();
+        Instant expiresAt = Instant.now().plus(cookieTtl());
+        sessions.bindCookie(sessionId, Secrets.sha256(raw), expiresAt);
+        response.addHeader(HttpHeaders.SET_COOKIE, build(raw, cookieTtl()).toString());
     }
 
     /**

@@ -18,6 +18,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import static com.prabhix.identity.event.AuthEventRecorder.details;
 
@@ -51,9 +52,13 @@ public class HostedSignIn {
             new SavedRequestAwareAuthenticationSuccessHandler();
 
     private final AuthEventRecorder events;
+    private final HostedBrowserSession browserSessions;
 
-    public HostedSignIn(IdentityProperties properties, AuthEventRecorder events) {
+    public HostedSignIn(IdentityProperties properties,
+                        AuthEventRecorder events,
+                        HostedBrowserSession browserSessions) {
         this.events = events;
+        this.browserSessions = browserSessions;
         // Where to go when nothing was saved. A magic link opened on a phone, while the flow was
         // started on a laptop, has no authorization request in this session to resume — so it lands
         // in the console rather than on a dead end.
@@ -76,6 +81,10 @@ public class HostedSignIn {
         authentication.setDetails(user.getEmail());
 
         sessionStrategy.onAuthentication(authentication, request, response);
+        // Establish the revocable long-lived credential before persisting an authenticated servlet
+        // session. If the device-session store is unavailable, do not leave a half-signed-in browser
+        // that can receive an OAuth code but cannot renew or be revoked as a device.
+        UUID deviceSessionId = browserSessions.establish(user.getId(), request, response);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -85,7 +94,9 @@ public class HostedSignIn {
         contexts.saveContext(context, request, response);
 
         events.success(AuthEventType.LOGIN_SUCCEEDED, user.getId(), user.getEmail(),
-                details("method", factor, "surface", "hosted"));
+                details("method", factor,
+                        "surface", "hosted",
+                        "sessionId", deviceSessionId.toString()));
 
         success.onAuthenticationSuccess(request, response, authentication);
     }

@@ -1,5 +1,7 @@
 package com.prabhix.identity.integration;
 
+import com.prabhix.identity.user.CredentialService;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -60,6 +64,9 @@ class OidcProviderIntegrationTest {
 
     @Autowired
     private RegisteredClientRepository clients;
+
+    @Autowired
+    private CredentialService credentials;
 
     @Test
     @DisplayName("discovery advertises the authorization code flow at the configured issuer")
@@ -115,6 +122,36 @@ class OidcProviderIntegrationTest {
                 // which behind a proxy is a thing the server has to be told rather than something it
                 // knows.
                 .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    @DisplayName("hosted password login establishes a durable cookie that renews an access token")
+    void hostedPasswordLoginEstablishesDurableSession() throws Exception {
+        String email = "durable-browser-session@example.com";
+        String password = "correct-horse-battery-staple";
+        credentials.create(email, password, "Durable Browser");
+
+        Cookie sessionCookie = mvc.perform(post("/login")
+                        .with(csrf())
+                        .param("username", email)
+                        .param("password", password))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().stringValues("Set-Cookie",
+                        org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("pbx_session="),
+                                org.hamcrest.Matchers.containsString("HttpOnly"),
+                                org.hamcrest.Matchers.containsString("Secure"),
+                                org.hamcrest.Matchers.containsString("SameSite=Lax")))))
+                .andReturn()
+                .getResponse()
+                .getCookie("pbx_session");
+
+        assertThat(sessionCookie).isNotNull();
+        mvc.perform(post("/api/v1/identity/auth/session/token").cookie(sessionCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                // Browser renewal must not expose a rotating refresh token to JavaScript.
+                .andExpect(jsonPath("$.refreshToken").value(org.hamcrest.Matchers.nullValue()));
     }
 
     @Test

@@ -98,6 +98,15 @@ server:
   # 8081, because Caddy fronts both this and the platform backend on 8080 as one API origin.
   port: ${SERVER_PORT:8081}
   shutdown: graceful
+  servlet:
+    session:
+      # The servlet session only carries the in-progress authorization request and prompt-less SSO.
+      # Long-lived product access comes from the separately revocable HttpOnly pbx_session cookie.
+      timeout: ${IDENTITY_HOSTED_SESSION_IDLE_TIMEOUT:PT30M}
+      cookie:
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: lax
   # The issuer in a discovery document has to be the public https URL, not the container's own
   # http://identity:8081, so the proxy's X-Forwarded-* headers have to be trusted.
   forward-headers-strategy: framework

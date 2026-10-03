@@ -90,13 +90,13 @@ public class SessionService {
 
     @Transactional
     public void bindCookie(UUID sessionId, String cookieTokenHash, Instant expiresAt) {
-        sessions.findById(sessionId)
+        DeviceSession session = sessions.findById(sessionId)
                 .filter(DeviceSession::isActive)
-                .ifPresent(session -> {
-                    session.setCookieTokenHash(cookieTokenHash);
-                    session.setCookieExpiresAt(expiresAt);
-                    sessions.save(session);
-                });
+                .orElseThrow(() -> ApiException.of(
+                        ErrorCode.TOKEN_REVOKED, "That session cannot receive a browser credential"));
+        session.setCookieTokenHash(cookieTokenHash);
+        session.setCookieExpiresAt(expiresAt);
+        sessions.save(session);
     }
 
     @Transactional(readOnly = true)

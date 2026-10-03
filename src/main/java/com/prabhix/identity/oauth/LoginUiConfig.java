@@ -32,6 +32,7 @@ public class LoginUiConfig {
     @Order(2)
     public SecurityFilterChain loginUiChain(HttpSecurity http,
                                             LoginFailureHandler failureHandler,
+                                            HostedAuthenticationSuccessHandler successHandler,
                                             IdentityProperties properties) throws Exception {
         http
                 // /signup and /account belong on this chain and not the API one: they are documents
@@ -57,6 +58,9 @@ public class LoginUiConfig {
                         // /account is a legitimate saved request: a product deep-link while signed
                         // out should resume here after the password, not dump into the console.
                         .permitAll()
+                        // Spring owns password POST processing, so this is where it joins the same
+                        // durable HttpOnly browser session as every passwordless hosted method.
+                        .successHandler(successHandler)
                         // The page asks for the address and the password on separate steps, so the
                         // default /login?error would discard the address along with the attempt.
                         .failureHandler(failureHandler))

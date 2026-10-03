@@ -4,8 +4,8 @@ Authentication for every Prabhix product. It answers one question — *who is th
 token that says so. It deliberately does not answer *what may they do*, which each product resolves
 from its own database.
 
-Served at `id.prabhixtechnologies.com`, and reached through the shared API origin at
-`api.prabhixtechnologies.com/api/v1/identity/auth/*`.
+Served at `identity.prabhixtechnologies.com`, including hosted sign-in and
+`/api/v1/identity/auth/*`. Product APIs stay on `api.prabhixtechnologies.com`.
 
 ## Why it is separate, and why authorization is not
 
