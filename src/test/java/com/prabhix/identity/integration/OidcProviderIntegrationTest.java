@@ -161,7 +161,7 @@ class OidcProviderIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 // Browser renewal must not expose a rotating refresh token to JavaScript.
-                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
     }
 
     @Test
