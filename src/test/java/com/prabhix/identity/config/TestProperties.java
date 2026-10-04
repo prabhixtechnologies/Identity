@@ -35,7 +35,8 @@ public final class TestProperties {
                                                List<String> retiredPublicKeys) {
         return new IdentityProperties(
                 issuer,
-                new Token(Duration.ofMinutes(15), Duration.ofDays(30)),
+                new Token(Duration.ofMinutes(15), Duration.ofDays(30),
+                        Duration.ofDays(90), Duration.ofDays(365), Duration.ofMinutes(5)),
                 new Signing(privateKey, retiredPublicKeys),
                 new Password(10, 12),
                 new Lockout(5, Duration.ofMinutes(15)),
@@ -84,7 +85,9 @@ public final class TestProperties {
         IdentityProperties base = signing(privateKey, List.of());
         return new IdentityProperties(
                 base.issuer(),
-                new Token(accessTokenTtl, base.token().refreshTokenTtl()),
+                new Token(accessTokenTtl, base.token().refreshTokenTtl(),
+                        base.token().browserIdleTtl(), base.token().browserAbsoluteTtl(),
+                        base.token().cookieGrace()),
                 base.signing(),
                 base.password(),
                 base.lockout(),

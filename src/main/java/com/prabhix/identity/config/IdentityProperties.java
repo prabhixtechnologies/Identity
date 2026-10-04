@@ -228,12 +228,6 @@ public record IdentityProperties(
             @DefaultValue("P90D") Duration browserIdleTtl,
             @DefaultValue("P365D") Duration browserAbsoluteTtl,
             @DefaultValue("PT5M") Duration cookieGrace) {
-
-        /** Tests and older call sites that only care about access and refresh lifetimes. */
-        public Token(Duration accessTokenTtl, Duration refreshTokenTtl) {
-            this(accessTokenTtl, refreshTokenTtl, Duration.ofDays(90), Duration.ofDays(365),
-                    Duration.ofMinutes(5));
-        }
     }
 
     /**
