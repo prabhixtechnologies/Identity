@@ -205,6 +205,7 @@ class IdentitySchemaIntegrationTest {
         session.setUserId(userId);
         session.setDeviceId(deviceId);
         session.setDeviceName("Phone");
+        session.setAbsoluteExpiresAt(Instant.now().plus(365, ChronoUnit.DAYS));
         return session;
     }
 

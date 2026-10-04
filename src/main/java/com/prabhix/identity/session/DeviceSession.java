@@ -61,6 +61,35 @@ public class DeviceSession extends BaseEntity {
     @Column(name = "cookie_expires_at")
     private Instant cookieExpiresAt;
 
+    /** Hard end of this sign-in. Activity cannot move it. */
+    @Column(name = "absolute_expires_at", nullable = false)
+    private Instant absoluteExpiresAt;
+
+    /**
+     * Hash of the cookie just replaced. Accepted until {@link #cookiePreviousExpiresAt} so two apps
+     * exchanging the same cookie in the same moment both succeed.
+     */
+    @Column(name = "cookie_previous_hash", length = 64)
+    private String cookiePreviousHash;
+
+    @Column(name = "cookie_previous_expires_at")
+    private Instant cookiePreviousExpiresAt;
+
+    /** When this session last completed a passkey or one-time-code proof. */
+    @Column(name = "mfa_verified_at")
+    private Instant mfaVerifiedAt;
+
+    /**
+     * When the person last proved who they are. Cookie renewal and refresh do not move it, so a
+     * product can require a fresh proof for a sensitive action.
+     */
+    @Column(name = "authenticated_at")
+    private Instant authenticatedAt;
+
+    /** Set for a row created by this sign-in, not loaded from the database. */
+    @jakarta.persistence.Transient
+    private boolean newlyOpened;
+
     public boolean isActive() {
         return revokedAt == null;
     }
@@ -80,6 +109,8 @@ public class DeviceSession extends BaseEntity {
         // dropping the hash means the cookie the browser may still hold matches no row at all.
         cookieTokenHash = null;
         cookieExpiresAt = null;
+        cookiePreviousHash = null;
+        cookiePreviousExpiresAt = null;
     }
 
     public enum DeviceType {

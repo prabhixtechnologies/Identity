@@ -3,6 +3,7 @@ package com.prabhix.identity.oauth;
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.event.AuthEventRecorder;
 import com.prabhix.identity.event.AuthEventType;
+import com.prabhix.identity.session.StaffSignInPolicy;
 import com.prabhix.identity.user.IdentityUser;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 import static com.prabhix.identity.event.AuthEventRecorder.details;
@@ -74,6 +76,10 @@ public class HostedSignIn {
                                    String factor,
                                    HttpServletRequest request,
                                    HttpServletResponse response) throws IOException, ServletException {
+        if (!StaffSignInPolicy.allows(user, List.of(factor))) {
+            response.sendRedirect("/login?error=staff_mfa");
+            return;
+        }
         UsernamePasswordAuthenticationToken authentication = UsernamePasswordAuthenticationToken.authenticated(
                 user.getId().toString(),
                 null,

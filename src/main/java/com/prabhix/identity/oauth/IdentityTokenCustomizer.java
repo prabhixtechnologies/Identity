@@ -100,6 +100,13 @@ public class IdentityTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodin
         // RFC 8176 has no value for "arrived through an external provider", and inventing one that
         // relying parties will compare against is worse than saying nothing.
         authenticationMethods(context).ifPresent(amr -> context.getClaims().claim("amr", amr));
+        context.getPrincipal().getAuthorities().stream()
+                .filter(FactorGrantedAuthority.class::isInstance)
+                .map(FactorGrantedAuthority.class::cast)
+                .map(FactorGrantedAuthority::getIssuedAt)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .ifPresent(when -> context.getClaims().claim("auth_time", when.getEpochSecond()));
     }
 
     /**

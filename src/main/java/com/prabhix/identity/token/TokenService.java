@@ -49,7 +49,7 @@ public class TokenService {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(properties.token().accessTokenTtl());
 
-        String token = Jwts.builder()
+        var builder = Jwts.builder()
                 // The kid lets a client pick the right key out of the JWKS instead of trying each in
                 // turn, which is what makes retiring a key take effect rather than merely stop being
                 // preferred.
@@ -63,9 +63,11 @@ public class TokenService {
                 .claim(CLAIM_EMAIL_VERIFIED, claims.emailVerified())
                 .claim(CLAIM_NAME, claims.name())
                 .claim(CLAIM_SESSION_ID, claims.sessionId().toString())
-                .claim(CLAIM_AUTH_METHODS, claims.authenticationMethods())
-                .signWith(key.privateKey(), Jwts.SIG.RS256)
-                .compact();
+                .claim(CLAIM_AUTH_METHODS, claims.authenticationMethods());
+        if (claims.authTime() != null) {
+            builder.claim("auth_time", claims.authTime().getEpochSecond());
+        }
+        String token = builder.signWith(key.privateKey(), Jwts.SIG.RS256).compact();
 
         return new IssuedToken(token, expiresAt);
     }

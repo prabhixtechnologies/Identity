@@ -1,6 +1,9 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.common.Secrets;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.observability.AuthMetrics;
+import com.prabhix.identity.risk.RiskEvaluator;
 import com.prabhix.identity.security.TrustedClientIpResolver;
 import com.prabhix.identity.session.DeviceSession;
 import com.prabhix.identity.session.SessionCookieService;
@@ -33,7 +36,10 @@ class HostedBrowserSessionTest {
         sessions = mock(SessionService.class);
         cookies = mock(SessionCookieService.class);
         TrustedClientIpResolver clientIp = mock(TrustedClientIpResolver.class);
-        browserSessions = new HostedBrowserSession(sessions, cookies, clientIp);
+        RiskEvaluator risk = mock(RiskEvaluator.class);
+        when(risk.newDevice()).thenReturn(RiskEvaluator.Decision.ALLOW);
+        browserSessions = new HostedBrowserSession(
+                sessions, cookies, clientIp, risk, mock(AuthMetrics.class), mock(AuthEventRecorder.class));
     }
 
     @Test

@@ -4,6 +4,8 @@ import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.common.Secrets;
 import com.prabhix.identity.config.TestProperties;
+import com.prabhix.identity.observability.AuthMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.prabhix.identity.session.DeviceSession.DeviceType;
 import com.prabhix.identity.session.SessionService.DeviceContext;
 import com.prabhix.identity.session.SessionService.RotatedToken;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +46,7 @@ class SessionServiceTest {
         refreshTokens = mock(RefreshTokenRepository.class);
         denyList = mock(TokenDenyList.class);
         service = new SessionService(sessions, refreshTokens, denyList,
-                TestProperties.signing("", List.of()));
+                TestProperties.signing("", List.of()), new AuthMetrics(new SimpleMeterRegistry()));
 
         // Stand-in stores rather than per-test stubs. Rotation and replay are about how several rows
         // relate to each other, and stubbing each lookup individually describes the assertions twice.
@@ -57,6 +60,18 @@ class SessionServiceTest {
         });
         when(sessions.findById(any())).thenAnswer(call ->
                 Optional.ofNullable(sessionRows.get(call.<UUID>getArgument(0))));
+        when(sessions.lockById(any())).thenAnswer(call ->
+                Optional.ofNullable(sessionRows.get(call.<UUID>getArgument(0))));
+        when(sessions.findByPresentedCookie(any(), any())).thenAnswer(call -> {
+            String hash = call.getArgument(0);
+            Instant now = call.getArgument(1);
+            return sessionRows.values().stream()
+                    .filter(session -> hash.equals(session.getCookieTokenHash())
+                            || (hash.equals(session.getCookiePreviousHash())
+                            && session.getCookiePreviousExpiresAt() != null
+                            && session.getCookiePreviousExpiresAt().isAfter(now)))
+                    .findFirst();
+        });
         when(refreshTokens.save(any(RefreshToken.class))).thenAnswer(call -> {
             RefreshToken token = call.getArgument(0);
             if (token.getId() == null) {
@@ -215,6 +230,28 @@ class SessionServiceTest {
         // There is nothing to recognise such a client by, and guessing would merge two people
         // sharing a machine into one session.
         assertThat(second.getId()).isNotEqualTo(first.getId());
+    }
+
+    @Test
+    @DisplayName("using the browser cookie slides its expiry and keeps the previous value briefly")
+    void renewingSlidesTheCookieAndHonoursGrace() {
+        DeviceSession session = service.openOrReuse(UUID.randomUUID(), web());
+        service.bindCookie(session.getId(), Secrets.sha256("first-cookie"),
+                Instant.now().plus(java.time.Duration.ofDays(1)));
+
+        SessionService.BrowserRenewal first = service.renewBrowserCookie("first-cookie");
+
+        assertThat(first.replacement()).isNotBlank();
+        assertThat(first.maxAge()).isGreaterThan(java.time.Duration.ofDays(30));
+        assertThat(sessionRows.get(session.getId()).getCookiePreviousHash())
+                .isEqualTo(Secrets.sha256("first-cookie"));
+        assertThat(service.renewBrowserCookie("first-cookie").replacement()).isNull();
+
+        sessionRows.get(session.getId()).setLastSeenAt(Instant.now().minus(91, ChronoUnit.DAYS));
+        assertThatThrownBy(() -> service.renewBrowserCookie(first.replacement()))
+                .isInstanceOf(ApiException.class)
+                .satisfies(thrown ->
+                        assertThat(((ApiException) thrown).getCode()).isEqualTo(ErrorCode.TOKEN_EXPIRED));
     }
 
     @Test

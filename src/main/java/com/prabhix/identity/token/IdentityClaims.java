@@ -1,5 +1,6 @@
 package com.prabhix.identity.token;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,5 +30,15 @@ public record IdentityClaims(
         boolean emailVerified,
         String name,
         UUID sessionId,
-        List<String> authenticationMethods) {
+        List<String> authenticationMethods,
+        Instant authTime) {
+
+    public IdentityClaims(UUID subject,
+                          String email,
+                          boolean emailVerified,
+                          String name,
+                          UUID sessionId,
+                          List<String> authenticationMethods) {
+        this(subject, email, emailVerified, name, sessionId, authenticationMethods, null);
+    }
 }

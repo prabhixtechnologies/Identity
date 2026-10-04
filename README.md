@@ -159,7 +159,10 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out identity-signi
 | `IDENTITY_SIGNING_KEY` | PKCS#8 PEM of the active key. Line breaks may arrive as literal `\n`; that is handled. |
 | `IDENTITY_RETIRED_PUBLIC_KEYS` | X.509 PEM public keys that no longer sign but are still published. |
 | `IDENTITY_ACCESS_TTL` | Default `PT15M`, matching the platform. |
-| `IDENTITY_REFRESH_TTL` | Default `P30D`. Also how long a signed-in browser stays signed in, since the session cookie shares this knob. |
+| `IDENTITY_REFRESH_TTL` | Default `P30D`. How long a native refresh token lasts between uses. Each refresh starts a new window, capped by the absolute sign-in limit. |
+| `IDENTITY_BROWSER_IDLE_TTL` | Default `P90D`. A browser that is used inside this window stays signed in. The cookie is re-issued on each exchange. |
+| `IDENTITY_BROWSER_ABSOLUTE_TTL` | Default `P365D`. One sign-in cannot be slid past this, however often the person comes back. |
+| `IDENTITY_COOKIE_GRACE` | Default `PT5M`. The previous browser cookie still works this long after rotation, so two products can exchange it at the same time. |
 | `IDENTITY_DB_URL`, `IDENTITY_DB_USER`, `IDENTITY_DB_PASSWORD` | Its own database. |
 | `REDIS_HOST`, `REDIS_PASSWORD` | Shared with the products, for the deny list. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Where auth mail goes. |

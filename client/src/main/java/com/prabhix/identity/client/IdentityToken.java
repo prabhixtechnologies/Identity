@@ -33,4 +33,23 @@ public record IdentityToken(UUID subject,
                             Instant expiresAt,
                             List<String> authenticationMethods,
                             Map<String, Object> claims) {
+
+    /** When the person last proved who they are. Absent on tokens issued before this claim existed. */
+    public Instant authTime() {
+        if (claims == null) {
+            return null;
+        }
+        Object raw = claims.get("auth_time");
+        if (raw instanceof Number number) {
+            return Instant.ofEpochSecond(number.longValue());
+        }
+        if (raw instanceof String text && !text.isBlank()) {
+            try {
+                return Instant.ofEpochSecond(Long.parseLong(text.trim()));
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+        return null;
+    }
 }

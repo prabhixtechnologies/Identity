@@ -1,6 +1,10 @@
 package com.prabhix.identity.oauth;
 
 import com.prabhix.identity.common.Secrets;
+import com.prabhix.identity.event.AuthEventRecorder;
+import com.prabhix.identity.event.AuthEventType;
+import com.prabhix.identity.observability.AuthMetrics;
+import com.prabhix.identity.risk.RiskEvaluator;
 import com.prabhix.identity.security.RequestMetadata;
 import com.prabhix.identity.security.TrustedClientIpResolver;
 import com.prabhix.identity.session.DeviceSession;
@@ -13,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
+
+import static com.prabhix.identity.event.AuthEventRecorder.details;
 
 /**
  * Establishes the durable, revocable half of a hosted browser sign-in.
@@ -33,6 +39,9 @@ public class HostedBrowserSession {
     private final SessionService sessions;
     private final SessionCookieService cookies;
     private final TrustedClientIpResolver clientIp;
+    private final RiskEvaluator risk;
+    private final AuthMetrics metrics;
+    private final AuthEventRecorder events;
 
     public UUID establish(UUID userId,
                           HttpServletRequest request,
@@ -55,6 +64,11 @@ public class HostedBrowserSession {
                     "WEB",
                     RequestMetadata.userAgent(request),
                     RequestMetadata.clientIp(request, clientIp)));
+            if (session.isNewlyOpened() && risk.newDevice() == RiskEvaluator.Decision.ALLOW) {
+                metrics.newDevice();
+                events.success(AuthEventType.NEW_DEVICE, userId, null,
+                        details("sessionId", session.getId().toString(), "surface", "hosted"));
+            }
         }
         cookies.issueRequired(response, session.getId());
         return session.getId();

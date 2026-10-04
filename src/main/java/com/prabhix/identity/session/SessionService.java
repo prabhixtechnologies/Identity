@@ -4,6 +4,7 @@ import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.common.Secrets;
 import com.prabhix.identity.config.IdentityProperties;
+import com.prabhix.identity.observability.AuthMetrics;
 import com.prabhix.identity.session.DeviceSession.DeviceType;
 import com.prabhix.identity.token.TokenDenyList;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -31,6 +33,7 @@ public class SessionService {
     private final RefreshTokenRepository refreshTokens;
     private final TokenDenyList denyList;
     private final IdentityProperties properties;
+    private final AuthMetrics metrics;
 
     /**
      * Finds the live session for a device, or opens one.
@@ -47,17 +50,23 @@ public class SessionService {
                     sessions.findByUserIdAndDeviceIdAndRevokedAtIsNull(userId, device.deviceId());
             if (existing.isPresent()) {
                 DeviceSession session = existing.get();
-                session.setLastSeenAt(Instant.now());
-                if (device.deviceName() != null && !device.deviceName().isBlank()) {
-                    session.setDeviceName(device.deviceName());
+                Instant now = Instant.now();
+                if (session.getAbsoluteExpiresAt() != null && !session.getAbsoluteExpiresAt().isAfter(now)) {
+                    revoke(session.getId(), "absolute_expired");
+                } else {
+                    session.setLastSeenAt(now);
+                    session.setAuthenticatedAt(now);
+                    if (device.deviceName() != null && !device.deviceName().isBlank()) {
+                        session.setDeviceName(device.deviceName());
+                    }
+                    if (device.userAgent() != null) {
+                        session.setUserAgent(truncate(device.userAgent()));
+                    }
+                    if (device.ipAddress() != null) {
+                        session.setIpAddress(device.ipAddress());
+                    }
+                    return sessions.save(session);
                 }
-                if (device.userAgent() != null) {
-                    session.setUserAgent(truncate(device.userAgent()));
-                }
-                if (device.ipAddress() != null) {
-                    session.setIpAddress(device.ipAddress());
-                }
-                return sessions.save(session);
             }
         }
 
@@ -68,7 +77,11 @@ public class SessionService {
         session.setDeviceType(device.deviceType());
         session.setUserAgent(truncate(device.userAgent()));
         session.setIpAddress(device.ipAddress());
-        session.setLastSeenAt(Instant.now());
+        Instant now = Instant.now();
+        session.setLastSeenAt(now);
+        session.setAuthenticatedAt(now);
+        session.setNewlyOpened(true);
+        lifetime().stampNewSession(session, now);
         return sessions.save(session);
     }
 
@@ -85,18 +98,76 @@ public class SessionService {
 
     @Transactional(readOnly = true)
     public Optional<DeviceSession> findByCookie(String cookieTokenHash) {
-        return sessions.findByCookieTokenHash(cookieTokenHash);
+        return sessions.findByPresentedCookie(cookieTokenHash, Instant.now());
     }
 
+    /**
+     * Binds a new cookie. The previous hash stays valid for the grace window so a copy already in
+     * flight is not treated as theft.
+     *
+     * @return when the new cookie stops being accepted, already capped by the absolute deadline
+     */
     @Transactional
-    public void bindCookie(UUID sessionId, String cookieTokenHash, Instant expiresAt) {
+    public Instant bindCookie(UUID sessionId, String cookieTokenHash, Instant expiresAt) {
         DeviceSession session = sessions.findById(sessionId)
                 .filter(DeviceSession::isActive)
                 .orElseThrow(() -> ApiException.of(
                         ErrorCode.TOKEN_REVOKED, "That session cannot receive a browser credential"));
+        Instant now = Instant.now();
+        lifetime().stampNewSession(session, now);
+        if (session.getCookieTokenHash() != null) {
+            session.setCookiePreviousHash(session.getCookieTokenHash());
+            session.setCookiePreviousExpiresAt(lifetime().cookieGraceDeadline(now));
+        }
         session.setCookieTokenHash(cookieTokenHash);
-        session.setCookieExpiresAt(expiresAt);
+        Instant capped = expiresAt.isAfter(lifetime().slidingCookieExpiry(session, now))
+                ? lifetime().slidingCookieExpiry(session, now)
+                : expiresAt;
+        session.setCookieExpiresAt(capped);
         sessions.save(session);
+        return capped;
+    }
+
+    /**
+     * Slides a browser session forward and rotates its cookie.
+     *
+     * <p>A cookie that is already the previous value, inside the grace window, is accepted and not
+     * rotated again. The caller that holds the new value is the one that writes {@code Set-Cookie}.
+     */
+    @Transactional
+    public BrowserRenewal renewBrowserCookie(String rawCookie) {
+        Instant now = Instant.now();
+        String hash = Secrets.sha256(rawCookie);
+        DeviceSession found = sessions.findByPresentedCookie(hash, now)
+                .orElseThrow(() -> ApiException.of(ErrorCode.UNAUTHENTICATED, "No active session for this browser"));
+        DeviceSession session = sessions.lockById(found.getId()).orElse(found);
+        lifetime().assertAlive(session, now);
+        boolean current = hash.equals(session.getCookieTokenHash());
+        boolean previous = hash.equals(session.getCookiePreviousHash())
+                && session.getCookiePreviousExpiresAt() != null
+                && session.getCookiePreviousExpiresAt().isAfter(now);
+        if (!current && !previous) {
+            throw ApiException.of(ErrorCode.UNAUTHENTICATED, "No active session for this browser");
+        }
+        if (current && !session.hasUsableCookie(now)) {
+            throw ApiException.of(ErrorCode.TOKEN_EXPIRED, "This sign-in has expired. Sign in again.");
+        }
+
+        session.setLastSeenAt(now);
+        Instant slid = lifetime().slidingCookieExpiry(session, now);
+        session.setCookieExpiresAt(slid);
+        String replacement = null;
+        if (current) {
+            replacement = Secrets.token();
+            session.setCookiePreviousHash(hash);
+            session.setCookiePreviousExpiresAt(lifetime().cookieGraceDeadline(now));
+            session.setCookieTokenHash(Secrets.sha256(replacement));
+            metrics.sessionExtended();
+        } else {
+            metrics.cookieGrace();
+        }
+        sessions.save(session);
+        return new BrowserRenewal(session, replacement, Duration.between(now, slid));
     }
 
     @Transactional(readOnly = true)
@@ -116,7 +187,7 @@ public class SessionService {
         token.setUserId(userId);
         token.setSessionId(sessionId);
         token.setTokenHash(Secrets.sha256(raw));
-        token.setExpiresAt(Instant.now().plus(properties.token().refreshTokenTtl()));
+        token.setExpiresAt(lifetime().refreshExpiry(sessions.findById(sessionId).orElseThrow(), Instant.now()));
         return new MintedToken(refreshTokens.save(token), raw);
     }
 
@@ -142,6 +213,17 @@ public class SessionService {
         }
         if (token.getRevokedAt() != null || token.getExpiresAt().isBefore(Instant.now())) {
             throw ApiException.of(ErrorCode.TOKEN_INVALID, "That refresh token is not valid");
+        }
+
+        DeviceSession current = sessions.findById(token.getSessionId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.TOKEN_INVALID, "That session no longer exists"));
+        try {
+            lifetime().assertAlive(current, Instant.now());
+        } catch (ApiException ex) {
+            if (ex.getCode() == ErrorCode.TOKEN_REVOKED) {
+                throw ex;
+            }
+            throw ApiException.of(ErrorCode.TOKEN_EXPIRED, ex.getMessage());
         }
 
         token.setUsedAt(Instant.now());
@@ -334,6 +416,14 @@ public class SessionService {
     }
 
     public record RotatedToken(DeviceSession session, UUID userId, String refreshToken) {
+    }
+
+    /** A browser renewal. {@code replacement} is null when this caller lost the rotation race. */
+    public record BrowserRenewal(DeviceSession session, String replacement, Duration maxAge) {
+    }
+
+    private SessionLifetime lifetime() {
+        return new SessionLifetime(properties);
     }
 
     public record GlobalRevocationResult(int sessionsRevoked, int refreshTokensRevoked, int usersMarked) {

@@ -5,6 +5,9 @@ import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.common.Secrets;
 import com.prabhix.identity.event.AuthEventRecorder;
 import com.prabhix.identity.event.AuthEventType;
+import com.prabhix.identity.observability.AuthMetrics;
+import com.prabhix.identity.risk.RiskEvaluator;
+import com.prabhix.identity.session.SessionService.BrowserRenewal;
 import com.prabhix.identity.session.SessionService.DeviceContext;
 import com.prabhix.identity.session.SessionService.RotatedToken;
 import com.prabhix.identity.token.IdentityClaims;
@@ -40,6 +43,8 @@ public class SignInService {
     private final CredentialService credentials;
     private final TokenService tokens;
     private final AuthEventRecorder events;
+    private final RiskEvaluator risk;
+    private final AuthMetrics metrics;
 
     /**
      * Completes a sign-in for a user who has already been authenticated by some means.
@@ -54,7 +59,30 @@ public class SignInService {
                                   DeviceContext device,
                                   List<String> authenticationMethods) {
         credentials.ensureSignInAllowed(user);
+        if (!StaffSignInPolicy.allows(user, authenticationMethods)) {
+            metrics.stepUpRequired();
+            events.failure(AuthEventType.STEP_UP_REQUIRED, user.getId(), user.getEmail(),
+                    details("reason", "staff_mfa", "surface", "api"));
+            throw ApiException.of(ErrorCode.STEP_UP_REQUIRED,
+                    "Staff sign-in needs a passkey or a one-time code.");
+        }
         DeviceSession session = sessions.openOrReuse(user.getId(), device);
+        if (user.isPlatformAdmin()) {
+            session.setMfaVerifiedAt(Instant.now());
+        }
+        if (session.isNewlyOpened()) {
+            if (risk.newDevice() == RiskEvaluator.Decision.STEP_UP) {
+                metrics.stepUpRequired();
+                events.failure(AuthEventType.STEP_UP_REQUIRED, user.getId(), user.getEmail(),
+                        details("reason", "new_device", "surface", "api"));
+                throw ApiException.of(ErrorCode.STEP_UP_REQUIRED,
+                        "Confirm this new device with a passkey or a one-time code.");
+            }
+            metrics.newDevice();
+            events.success(AuthEventType.NEW_DEVICE, user.getId(), user.getEmail(),
+                    details("sessionId", session.getId().toString(),
+                            "deviceType", session.getDeviceType().name()));
+        }
         String refreshToken = sessions.issueRefreshToken(user.getId(), session.getId());
         // The one success event for every API sign-in, whichever proof got the caller here. The
         // hosted page records its own in HostedSignIn, because it never comes through this method.
@@ -99,24 +127,34 @@ public class SignInService {
      * injected script could have read it.
      */
     @Transactional
-    public TokenResponse exchangeCookie(String rawCookieToken) {
-        DeviceSession session = sessions.findByCookie(Secrets.sha256(rawCookieToken))
+    public CookieExchange exchangeCookie(String rawCookieToken, String clientIp) {
+        DeviceSession preview = sessions.findByCookie(Secrets.sha256(rawCookieToken))
                 .orElseThrow(SignInService::noSessionCookie);
-
-        // Distinguishing these two is not worth doing for the caller — both mean "sign in again" —
-        // but the distinction matters in the log, where a revoked session is the expected
-        // consequence of somebody signing out and an expired cookie is just the passage of time.
-        if (!session.isActive()) {
-            log.debug("Cookie exchange refused: session {} was revoked", session.getId());
+        if (!preview.isActive()) {
+            log.debug("Cookie exchange refused: session {} was revoked", preview.getId());
             throw ApiException.of(ErrorCode.TOKEN_REVOKED, "This session was signed out");
         }
-        if (!session.hasUsableCookie(Instant.now())) {
-            throw noSessionCookie();
+        IdentityUser user = credentials.requireSignInAllowed(preview.getUserId());
+        if (risk.networkChange(user.isPlatformAdmin(), preview.getIpAddress(), clientIp)
+                == RiskEvaluator.Decision.STEP_UP) {
+            metrics.stepUpRequired();
+            events.failure(AuthEventType.STEP_UP_REQUIRED, user.getId(), user.getEmail(),
+                    details("reason", "network_change", "surface", "cookie"));
+            throw ApiException.of(ErrorCode.STEP_UP_REQUIRED,
+                    "Confirm this staff sign-in with a passkey or a one-time code.");
         }
 
-        IdentityUser user = credentials.requireSignInAllowed(session.getUserId());
-        DeviceSession touched = sessions.touch(session.getId());
-        return respond(user, touched, null, List.of());
+        BrowserRenewal renewal = sessions.renewBrowserCookie(rawCookieToken);
+        if (clientIp != null && !clientIp.isBlank()) {
+            renewal.session().setIpAddress(clientIp);
+        }
+        return new CookieExchange(
+                respond(user, renewal.session(), null, List.of()),
+                renewal.replacement(),
+                renewal.maxAge());
+    }
+
+    public record CookieExchange(TokenResponse tokens, String rotatedCookie, Duration maxAge) {
     }
 
     public static ApiException noSessionCookie() {
@@ -133,7 +171,8 @@ public class SignInService {
                 user.isEmailVerified(),
                 user.effectiveDisplayName(),
                 session.getId(),
-                authenticationMethods));
+                authenticationMethods,
+                session.getAuthenticatedAt()));
 
         return new TokenResponse(
                 access.token(),

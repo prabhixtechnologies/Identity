@@ -10,6 +10,8 @@ package com.prabhix.identity.event;
 public enum AuthEventType {
     LOGIN_SUCCEEDED,
     LOGIN_FAILED,
+    STEP_UP_REQUIRED,
+    NEW_DEVICE,
     LOGOUT,
     LOCKED_OUT,
     PASSWORD_CHANGED,

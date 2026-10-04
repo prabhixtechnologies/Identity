@@ -214,12 +214,26 @@ public record IdentityProperties(
      * @param accessTokenTtl matches the platform's 15 minutes. Short because access tokens carry no
      *     revocation check of their own — a signature is valid until it expires, and the products
      *     verifying it offline cannot ask whether the session still exists.
-     * @param refreshTokenTtl also how long a signed-in browser stays signed in, since the session
-     *     cookie shares this knob
+     * @param refreshTokenTtl how long a native refresh token lasts between uses. Each successful
+     *     refresh mints a successor with a fresh window, capped by {@code browserAbsoluteTtl}.
+     * @param browserIdleTtl how long a browser or device may sit unused before it must sign in again.
+     *     Activity slides this window forward.
+     * @param browserAbsoluteTtl the longest a single sign-in may last, however often it is used.
+     * @param cookieGrace how long the previous browser cookie still exchanges after a rotation, so
+     *     two products calling at the same moment both succeed.
      */
     public record Token(
             @DefaultValue("PT15M") Duration accessTokenTtl,
-            @DefaultValue("P30D") Duration refreshTokenTtl) {
+            @DefaultValue("P30D") Duration refreshTokenTtl,
+            @DefaultValue("P90D") Duration browserIdleTtl,
+            @DefaultValue("P365D") Duration browserAbsoluteTtl,
+            @DefaultValue("PT5M") Duration cookieGrace) {
+
+        /** Tests and older call sites that only care about access and refresh lifetimes. */
+        public Token(Duration accessTokenTtl, Duration refreshTokenTtl) {
+            this(accessTokenTtl, refreshTokenTtl, Duration.ofDays(90), Duration.ofDays(365),
+                    Duration.ofMinutes(5));
+        }
     }
 
     /**

@@ -19,7 +19,7 @@ secret could mint with it, which is the property the identity split exists to re
 <dependency>
     <groupId>com.prabhix</groupId>
     <artifactId>identity-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 

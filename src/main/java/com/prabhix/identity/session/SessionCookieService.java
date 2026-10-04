@@ -1,8 +1,13 @@
 package com.prabhix.identity.session;
 
+import com.prabhix.identity.common.ApiException;
+import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.common.Secrets;
 import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.config.IdentityProperties.SessionCookie;
+import com.prabhix.identity.security.RequestMetadata;
+import com.prabhix.identity.security.TrustedClientIpResolver;
+import com.prabhix.identity.session.SignInService.CookieExchange;
 import com.prabhix.identity.web.AuthDtos.TokenResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +47,7 @@ public class SessionCookieService {
     private final SessionService sessions;
     private final SignInService signIn;
     private final IdentityProperties properties;
+    private final TrustedClientIpResolver clientIp;
 
     /**
      * Binds a fresh cookie to a session and writes it to the response.
@@ -79,9 +85,8 @@ public class SessionCookieService {
             throw new IllegalArgumentException("A session id is required for a browser cookie");
         }
         String raw = Secrets.token();
-        Instant expiresAt = Instant.now().plus(cookieTtl());
-        sessions.bindCookie(sessionId, Secrets.sha256(raw), expiresAt);
-        response.addHeader(HttpHeaders.SET_COOKIE, build(raw, cookieTtl()).toString());
+        Instant expiresAt = sessions.bindCookie(sessionId, Secrets.sha256(raw), Instant.now().plus(cookieTtl()));
+        response.addHeader(HttpHeaders.SET_COOKIE, build(raw, Duration.between(Instant.now(), expiresAt)).toString());
     }
 
     /**
@@ -93,7 +98,17 @@ public class SessionCookieService {
     public TokenResponse exchange(HttpServletRequest request, HttpServletResponse response) {
         String raw = read(request).orElseThrow(SignInService::noSessionCookie);
         try {
-            return signIn.exchangeCookie(raw);
+            CookieExchange exchange = signIn.exchangeCookie(raw, RequestMetadata.clientIp(request, clientIp));
+            if (exchange.rotatedCookie() != null && exchange.maxAge() != null && !exchange.maxAge().isNegative()) {
+                response.addHeader(HttpHeaders.SET_COOKIE,
+                        build(exchange.rotatedCookie(), exchange.maxAge()).toString());
+            }
+            return exchange.tokens();
+        } catch (ApiException ex) {
+            if (ex.getCode() != ErrorCode.STEP_UP_REQUIRED) {
+                clear(response);
+            }
+            throw ex;
         } catch (RuntimeException ex) {
             clear(response);
             throw ex;
@@ -144,6 +159,6 @@ public class SessionCookieService {
 
     /** One knob for "how long does a signed-in browser stay signed in", shared with refresh tokens. */
     private Duration cookieTtl() {
-        return properties.token().refreshTokenTtl();
+        return properties.token().browserIdleTtl();
     }
 }

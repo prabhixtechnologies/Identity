@@ -17,6 +17,8 @@ public enum ErrorCode {
     TOKEN_INVALID(HttpStatus.UNAUTHORIZED),
     TOKEN_REVOKED(HttpStatus.UNAUTHORIZED),
     FORBIDDEN(HttpStatus.FORBIDDEN),
+    /** A staff account, or a changed network, must sign in again with a passkey or one-time code. */
+    STEP_UP_REQUIRED(HttpStatus.FORBIDDEN),
     ACCOUNT_LOCKED(HttpStatus.FORBIDDEN),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN),
