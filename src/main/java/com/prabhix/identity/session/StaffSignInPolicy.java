@@ -35,4 +35,9 @@ public final class StaffSignInPolicy {
         }
         return methods.stream().anyMatch(ALLOWED::contains);
     }
+
+    /** A passkey or one-time code, as opposed to a password. Staff sign-in has to be one of these. */
+    public static boolean isSecondFactor(String method) {
+        return method != null && ALLOWED.contains(method);
+    }
 }

@@ -27,6 +27,8 @@ import static org.mockito.Mockito.when;
 
 class HostedBrowserSessionTest {
 
+    private static final String CURRENT_IP = "203.0.113.10";
+
     private SessionService sessions;
     private SessionCookieService cookies;
     private HostedBrowserSession browserSessions;
@@ -36,6 +38,7 @@ class HostedBrowserSessionTest {
         sessions = mock(SessionService.class);
         cookies = mock(SessionCookieService.class);
         TrustedClientIpResolver clientIp = mock(TrustedClientIpResolver.class);
+        when(clientIp.resolve(any())).thenReturn(CURRENT_IP);
         RiskEvaluator risk = mock(RiskEvaluator.class);
         when(risk.newDevice()).thenReturn(RiskEvaluator.Decision.ALLOW);
         browserSessions = new HostedBrowserSession(
@@ -51,11 +54,13 @@ class HostedBrowserSessionTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         when(cookies.read(request)).thenReturn(Optional.of("old-cookie"));
         when(sessions.findByCookie(Secrets.sha256("old-cookie"))).thenReturn(Optional.of(existing));
-        when(sessions.touch(existing.getId())).thenReturn(existing);
+        when(sessions.recordAuthentication(existing.getId(), CURRENT_IP, true)).thenReturn(existing);
 
-        UUID established = browserSessions.establish(userId, request, response);
+        UUID established = browserSessions.establish(userId, request, response, true);
 
         assertThat(established).isEqualTo(existing.getId());
+        verify(sessions).recordAuthentication(existing.getId(), CURRENT_IP, true);
+        verify(sessions, never()).touch(any());
         verify(cookies).issueRequired(response, existing.getId());
         verify(sessions, never()).openOrReuse(any(), any());
     }
@@ -71,8 +76,9 @@ class HostedBrowserSessionTest {
         when(cookies.read(request)).thenReturn(Optional.of("previous-cookie"));
         when(sessions.findByCookie(Secrets.sha256("previous-cookie"))).thenReturn(Optional.of(previous));
         when(sessions.openOrReuse(any(), any(DeviceContext.class))).thenReturn(replacement);
+        when(sessions.recordAuthentication(replacement.getId(), CURRENT_IP, false)).thenReturn(replacement);
 
-        UUID established = browserSessions.establish(nextUser, request, response);
+        UUID established = browserSessions.establish(nextUser, request, response, false);
 
         assertThat(established).isEqualTo(replacement.getId());
         verify(sessions).revoke(previous.getId(), "account_switched");

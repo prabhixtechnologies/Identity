@@ -52,7 +52,7 @@ public class HostedAuthenticationSuccessHandler implements AuthenticationSuccess
             response.sendRedirect("/login?error=staff_mfa");
             return;
         }
-        browserSessions.establish(userId, request, response);
+        browserSessions.establish(userId, request, response, false);
         delegate.onAuthenticationSuccess(request, response, authentication);
     }
 }

@@ -43,9 +43,15 @@ public class HostedBrowserSession {
     private final AuthMetrics metrics;
     private final AuthEventRecorder events;
 
+    /**
+     * @param mfa {@code true} when the proof was a passkey or a one-time code. Password sign-in passes
+     *     {@code false}. Staff never reach here on a password: that attempt is refused first.
+     */
     public UUID establish(UUID userId,
                           HttpServletRequest request,
-                          HttpServletResponse response) {
+                          HttpServletResponse response,
+                          boolean mfa) {
+        String ipAddress = RequestMetadata.clientIp(request, clientIp);
         DeviceSession session = currentSession(request);
         if (session != null && !session.getUserId().equals(userId)) {
             // A shared browser changing accounts must not leave the previous account's durable
@@ -53,23 +59,22 @@ public class HostedBrowserSession {
             sessions.revoke(session.getId(), "account_switched");
             session = null;
         }
-        if (session != null) {
-            // Reauthentication rotates the opaque cookie on the existing device row. A stolen copy
-            // stops working immediately without filling the device list with duplicate browsers.
-            session = sessions.touch(session.getId());
-        } else {
+        if (session == null) {
             session = sessions.openOrReuse(userId, DeviceContext.of(
                     null,
                     "Web browser",
                     "WEB",
                     RequestMetadata.userAgent(request),
-                    RequestMetadata.clientIp(request, clientIp)));
+                    ipAddress));
             if (session.isNewlyOpened() && risk.newDevice() == RiskEvaluator.Decision.ALLOW) {
                 metrics.newDevice();
                 events.success(AuthEventType.NEW_DEVICE, userId, null,
                         details("sessionId", session.getId().toString(), "surface", "hosted"));
             }
         }
+        // Always, including a reused row. touch() would leave the old network in place, and the next
+        // staff cookie exchange would demand another code for a change this sign-in just confirmed.
+        session = sessions.recordAuthentication(session.getId(), ipAddress, mfa);
         cookies.issueRequired(response, session.getId());
         return session.getId();
     }

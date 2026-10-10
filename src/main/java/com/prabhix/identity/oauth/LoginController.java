@@ -322,11 +322,13 @@ public class LoginController {
      * collapses "no such account" and "wrong password" together, which is the distinction that
      * would actually leak something.
      */
-    private static String failureMessage(String error) {
+    static String failureMessage(String error) {
         return switch (error) {
             case "expired" -> "That link has already been used, or has expired.";
             case "locked" -> "Too many failed attempts. This account is locked for a short while — "
                     + "try again shortly, or sign in with an emailed link instead.";
+            case "staff_mfa" -> "A password is not enough for a staff account. "
+                    + "Use a passkey, or email yourself a code.";
             default -> GENERIC_FAILURE;
         };
     }

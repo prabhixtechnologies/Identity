@@ -90,7 +90,8 @@ public class HostedSignIn {
         // Establish the revocable long-lived credential before persisting an authenticated servlet
         // session. If the device-session store is unavailable, do not leave a half-signed-in browser
         // that can receive an OAuth code but cannot renew or be revoked as a device.
-        UUID deviceSessionId = browserSessions.establish(user.getId(), request, response);
+        UUID deviceSessionId = browserSessions.establish(
+                user.getId(), request, response, StaffSignInPolicy.isSecondFactor(factor));
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);

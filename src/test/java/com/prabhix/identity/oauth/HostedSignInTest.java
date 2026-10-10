@@ -35,11 +35,11 @@ class HostedSignInTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession();
         MockHttpServletResponse response = new MockHttpServletResponse();
-        when(browserSessions.establish(userId, request, response)).thenReturn(UUID.randomUUID());
+        when(browserSessions.establish(userId, request, response, true)).thenReturn(UUID.randomUUID());
 
         signIn.completeAndRedirect(user, FactorGrantedAuthority.OTT_AUTHORITY, request, response);
 
-        verify(browserSessions).establish(userId, request, response);
+        verify(browserSessions).establish(userId, request, response, true);
         assertThat(request.getSession(false)).isNotNull();
         assertThat(response.getRedirectedUrl()).isEqualTo("https://app.prabhixtechnologies.com");
     }

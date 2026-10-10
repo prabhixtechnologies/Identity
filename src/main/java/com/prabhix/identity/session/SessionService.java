@@ -96,6 +96,36 @@ public class SessionService {
         return sessions.save(session);
     }
 
+    /**
+     * Records a fresh proof on a browser session that is being signed in to again.
+     *
+     * <p>{@link #touch} only moves {@code lastSeenAt}, which is right for a refresh and wrong for a
+     * sign-in. Staff cookie exchange compares the stored address with the request. A reused browser
+     * kept the address from the first time it was opened, so every later exchange asked for another
+     * code, and the product sent the browser straight back. The proof that just succeeded is that
+     * step-up; this is where its network, and the time of the proof, are written.
+     *
+     * @param mfa whether the proof was a passkey or a one-time code rather than a password
+     */
+    @Transactional
+    public DeviceSession recordAuthentication(UUID sessionId, String ipAddress, boolean mfa) {
+        DeviceSession session = sessions.findById(sessionId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.TOKEN_INVALID, "That session no longer exists"));
+        if (!session.isActive()) {
+            throw ApiException.of(ErrorCode.TOKEN_REVOKED, "This session was signed out");
+        }
+        Instant now = Instant.now();
+        session.setLastSeenAt(now);
+        session.setAuthenticatedAt(now);
+        if (ipAddress != null && !ipAddress.isBlank()) {
+            session.setIpAddress(ipAddress);
+        }
+        if (mfa) {
+            session.setMfaVerifiedAt(now);
+        }
+        return sessions.save(session);
+    }
+
     @Transactional(readOnly = true)
     public Optional<DeviceSession> findByCookie(String cookieTokenHash) {
         return sessions.findByPresentedCookie(cookieTokenHash, Instant.now());
