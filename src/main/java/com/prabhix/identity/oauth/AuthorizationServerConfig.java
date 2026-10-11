@@ -33,8 +33,8 @@ import org.springframework.security.oauth2.server.authorization.token.JwtGenerat
 import org.springframework.security.oauth2.server.authorization.token.OAuth2AccessTokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
-import org.springframework.security.oauth2.server.authorization.web.OAuth2AuthorizationEndpointFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.ExceptionTranslationFilter;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -114,8 +114,11 @@ public class AuthorizationServerConfig {
                         .contentSecurityPolicy(csp ->
                                 csp.policyDirectives(FirstPartyHttpOrigins.loginCsp(properties))));
 
-        // Before the endpoint that would otherwise issue a code for the session already in the browser.
-        http.addFilterBefore(new PromptLoginFilter(), OAuth2AuthorizationEndpointFilter.class);
+        // Before the filter that saves this request and sends the browser to the login page. The
+        // authorization endpoint filter itself has no registered order in Spring Security 7 until the
+        // configurer installs it, so anchoring on that class aborts startup. This still runs after the
+        // session has been loaded, and the saved request is the one with prompt=login removed.
+        http.addFilterBefore(new PromptLoginFilter(), ExceptionTranslationFilter.class);
 
         http.exceptionHandling(handling -> handling
                 // Default, not only TEXT_HTML: Custom Tabs sometimes send Accept lists that miss
