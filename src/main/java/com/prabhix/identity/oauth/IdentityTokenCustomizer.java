@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -106,7 +107,10 @@ public class IdentityTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodin
                 .map(FactorGrantedAuthority::getIssuedAt)
                 .filter(Objects::nonNull)
                 .findFirst()
-                .ifPresent(when -> context.getClaims().claim("auth_time", when.getEpochSecond()));
+                // Date, not the epoch second. The refresh grant reads this claim back out of the
+                // authorization and casts it to Date. A number encodes into a valid JWT and then
+                // throws on the next refresh, which is a 500 from /oauth2/token.
+                .ifPresent(when -> context.getClaims().claim("auth_time", Date.from(when)));
     }
 
     /**

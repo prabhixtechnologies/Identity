@@ -221,7 +221,9 @@ public class AuthorizationServerConfig {
     @Bean
     public OAuth2AuthorizationService authorizationService(JdbcTemplate jdbc,
                                                           RegisteredClientRepository clients) {
-        return new JdbcOAuth2AuthorizationService(jdbc, clients);
+        // The wrapper rewrites auth_time on the way out. Rows saved as a number still have to
+        // refresh; see AuthTimeNormalizingAuthorizationService.
+        return new AuthTimeNormalizingAuthorizationService(new JdbcOAuth2AuthorizationService(jdbc, clients));
     }
 
     @Bean
