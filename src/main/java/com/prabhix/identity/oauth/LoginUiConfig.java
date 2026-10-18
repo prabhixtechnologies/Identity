@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 /**
@@ -93,6 +94,17 @@ public class LoginUiConfig {
         return (request, response, denied) -> {
             if (LogoutCsrfRedirect.shouldShowConfirmationPage(request, denied)) {
                 response.sendRedirect("/logout");
+                return;
+            }
+            // A stale form fails the CSRF check. That is an expired page, not a wrong password,
+            // and the sign-in copy would tell the person their account does not exist.
+            if (denied instanceof CsrfException) {
+                String path = request.getRequestURI() == null ? "" : request.getRequestURI();
+                if (path.startsWith("/signup")) {
+                    response.sendRedirect("/signup?expired");
+                    return;
+                }
+                response.sendRedirect("/login?error=expired_page&method=choose");
                 return;
             }
             response.sendRedirect("/login?error&method=choose");

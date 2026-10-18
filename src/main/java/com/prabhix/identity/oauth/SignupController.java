@@ -54,10 +54,14 @@ public class SignupController {
     public String form(@RequestParam(required = false) String email,
                        @RequestParam(required = false) String name,
                        @RequestParam(required = false) String organization,
+                       @RequestParam(required = false) String expired,
                        HttpServletRequest request,
                        HttpServletResponse response,
                        Model model) {
         boolean shopLater = shopLater(request, response);
+        if (expired != null) {
+            model.addAttribute("error", "This page expired. Enter your details again.");
+        }
         model.addAttribute("email", email != null ? email : "");
         model.addAttribute("name", name != null ? name : "");
         model.addAttribute("organization", organization != null ? organization : "");

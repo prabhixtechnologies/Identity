@@ -325,6 +325,7 @@ public class LoginController {
     static String failureMessage(String error) {
         return switch (error) {
             case "expired" -> "That link has already been used, or has expired.";
+            case "expired_page" -> "This page expired. Enter your details again.";
             case "locked" -> "Too many failed attempts. This account is locked for a short while — "
                     + "try again shortly, or sign in with an emailed link instead.";
             case "staff_mfa" -> "A password is not enough for a staff account. "
