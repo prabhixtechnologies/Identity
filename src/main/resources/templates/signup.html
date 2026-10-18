@@ -16,8 +16,9 @@
     <link rel="stylesheet" th:href="@{/assets/login.css}">
 </head>
 <!--
-  First of two short steps: details here, then the emailed OTP. The split is security rather than
-  ceremony: the account must not become a session until mailbox ownership has been proved.
+  First of two short steps: details here, then the emailed OTP. Nothing is written to the
+  account database on this step. The details wait for ten minutes, and the account is created
+  only after the code on the next page matches.
 
   Four fields and no more. Every one of them is needed to end up with a usable account: a name for the
   membership, an address to sign in with, a password, and something to call the workspace. Anything

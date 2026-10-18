@@ -86,6 +86,34 @@ public class CredentialService {
         return users.save(user);
     }
 
+    /** Hashes a password for a signup that is not in the database yet. */
+    public String hashPassword(String rawPassword) {
+        validatePasswordStrength(rawPassword);
+        return passwordEncoder.encode(rawPassword);
+    }
+
+    /** Refuses an address that already belongs to a live account. */
+    public void requireEmailAvailable(String email) {
+        if (users.activeEmailExists(email)) {
+            throw ApiException.of(ErrorCode.ALREADY_EXISTS, "An account already uses that email");
+        }
+    }
+
+    /**
+     * Inserts an account whose email was already proved and whose password is already hashed.
+     *
+     * <p>Hosted signup calls this only after the emailed code matches. The hash is stored as given,
+     * so a second bcrypt pass would make the password the person chose unusable.
+     */
+    @Transactional
+    public IdentityUser createVerified(String email, String passwordHash, String fullName) {
+        IdentityUser user = newUser(email, fullName);
+        user.setPasswordHash(passwordHash);
+        user.setPasswordChangedAt(Instant.now());
+        user.setEmailVerifiedAt(Instant.now());
+        return users.save(user);
+    }
+
     /** For magic-link, OTP and SSO sign-ups, which never set a password. */
     @Transactional
     public IdentityUser createPasswordless(String email, String fullName) {

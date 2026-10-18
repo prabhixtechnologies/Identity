@@ -1,48 +1,62 @@
 package com.prabhix.identity.provisioning;
 
-import com.prabhix.identity.challenge.AuthChallenge;
-import com.prabhix.identity.challenge.AuthChallenge.ChallengePurpose;
-import com.prabhix.identity.challenge.ChallengeService;
-import com.prabhix.identity.common.ApiException;
-import com.prabhix.identity.common.ErrorCode;
+import com.prabhix.identity.config.IdentityProperties;
 import com.prabhix.identity.mail.AuthMailer;
+import com.prabhix.identity.provisioning.PendingSignupStore.Draft;
+import com.prabhix.identity.provisioning.PendingSignupStore.Issued;
 import com.prabhix.identity.user.CredentialService;
 import com.prabhix.identity.user.IdentityUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
-
-/** Email ownership gate between creating credentials and activating a signup session. */
+/**
+ * Email ownership gate that keeps a signup out of the database until the code is entered.
+ *
+ * <p>The form's details live in Redis for the challenge TTL. A matching code is what inserts the
+ * account, and only then is a workspace provisioned.
+ */
 @Service
 @RequiredArgsConstructor
 public class SignupVerificationService {
 
-    private final ChallengeService challenges;
+    private final PendingSignupStore pending;
     private final CredentialService credentials;
+    private final SignupService signup;
     private final AuthMailer mailer;
+    private final IdentityProperties properties;
 
-    @Transactional
-    public void send(IdentityUser user, String ipAddress) {
-        ChallengeService.Raised raised = challenges.raise(
-                ChallengePurpose.EMAIL_OTP, user.getId(), user.getEmail(), ipAddress);
-        mailer.sendSignupOtp(
-                user.getEmail(), user.effectiveDisplayName(), raised.rawSecret(), challenges.expiryMinutes());
-    }
-
-    @Transactional
-    public void resend(UUID userId, String ipAddress) {
-        send(credentials.requireActive(userId), ipAddress);
-    }
-
-    @Transactional
-    public IdentityUser verify(UUID expectedUserId, String email, String code) {
-        AuthChallenge challenge = challenges.consumeByCode(email, code, ChallengePurpose.EMAIL_OTP);
-        if (expectedUserId == null || !expectedUserId.equals(challenge.getUserId())) {
-            throw ApiException.of(ErrorCode.OTP_INVALID, "That code is not correct");
+    /** Stores the signup and sends the code. Returns the token the session must keep. */
+    public String begin(String email, String password, String fullName, String organizationName) {
+        credentials.requireEmailAvailable(email);
+        Issued issued = pending.begin(email, fullName, organizationName, credentials.hashPassword(password));
+        try {
+            mailer.sendSignupOtp(issued.email(), issued.name(), issued.code(), expiryMinutes());
+        } catch (RuntimeException ex) {
+            pending.discard(issued.token());
+            throw ex;
         }
-        credentials.markEmailVerified(expectedUserId);
-        return credentials.requireSignInAllowed(expectedUserId);
+        return issued.token();
+    }
+
+    /** Address waiting on this token, or null when the hold has expired. */
+    public String address(String token) {
+        return pending.address(token);
+    }
+
+    public void resend(String token) {
+        Issued issued = pending.resend(token);
+        mailer.sendSignupOtp(issued.email(), issued.name(), issued.code(), expiryMinutes());
+    }
+
+    /** Creates the account after the code matches, then provisions a workspace when one was named. */
+    public IdentityUser confirm(String token, String code) {
+        Draft draft = pending.match(token, code);
+        IdentityUser user = credentials.createVerified(draft.email(), draft.passwordHash(), draft.name());
+        pending.discard(token);
+        return signup.provision(user, draft.organization());
+    }
+
+    private long expiryMinutes() {
+        return properties.challenge().ttl().toMinutes();
     }
 }

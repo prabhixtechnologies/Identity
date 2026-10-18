@@ -234,4 +234,18 @@ class CredentialServiceTest {
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("was not found");
     }
+
+    @Test
+    @DisplayName("a proved signup stores the hash it was given and marks the address verified")
+    void createVerifiedDoesNotHashAgain() {
+        when(users.existsByEmailAndDeletedAtIsNull("owner@example.com")).thenReturn(false);
+        String hash = service.hashPassword(PASSWORD);
+
+        IdentityUser created = service.createVerified("Owner@Example.com", hash, "Demo Owner");
+
+        assertThat(created.getEmail()).isEqualTo("owner@example.com");
+        assertThat(created.getPasswordHash()).isEqualTo(hash);
+        assertThat(created.getEmailVerifiedAt()).isNotNull();
+        assertThat(new BCryptPasswordEncoder(4).matches(PASSWORD, created.getPasswordHash())).isTrue();
+    }
 }

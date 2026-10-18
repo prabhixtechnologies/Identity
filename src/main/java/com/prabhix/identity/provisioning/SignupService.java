@@ -1,6 +1,5 @@
 package com.prabhix.identity.provisioning;
 
-import com.prabhix.identity.user.CredentialService;
 import com.prabhix.identity.user.IdentityUser;
 import com.prabhix.identity.user.IdentityUserRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +30,6 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class SignupService {
 
-    private final CredentialService credentials;
     private final PlatformProvisioning platform;
     private final IdentityUserRepository users;
 
@@ -41,22 +39,11 @@ public class SignupService {
     }
 
     /**
-     * Creates the account and its organization, or neither.
+     * Opens the OneOps workspace after the emailed code has created the account.
      *
-     * @param organizationName what to call the OneOps workspace. Blank skips that call. MobiStack
-     *     uses the blank form: the shop is created in MobiStack after the account exists.
+     * <p>Blank skips that call. MobiStack uses the blank form: the shop is created in MobiStack
+     * after the account exists.
      */
-    public IdentityUser signUp(String email, String password, String fullName, String organizationName) {
-        IdentityUser user = createAccount(email, password, fullName);
-        return provision(user, organizationName);
-    }
-
-    /** Creates credentials first; hosted signup does not provision or sign in until email OTP passes. */
-    public IdentityUser createAccount(String email, String password, String fullName) {
-        return credentials.create(email, password, fullName);
-    }
-
-    /** Completes the product workspace after the address has been verified. */
     public IdentityUser provision(IdentityUser user, String organizationName) {
         // MobiStack creates the shop after this account exists. A workspace name here would open an
         // OneOps organization, which is neither that shop nor the fitment group.
@@ -70,11 +57,6 @@ public class SignupService {
             throw ex;
         }
         return user;
-    }
-
-    /** Frees an address when its verification email or later provisioning could not complete. */
-    public void withdrawIncomplete(IdentityUser user) {
-        withdraw(user);
     }
 
     /**

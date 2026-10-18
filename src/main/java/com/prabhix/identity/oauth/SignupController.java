@@ -3,6 +3,7 @@ package com.prabhix.identity.oauth;
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.provisioning.SignupService;
 import com.prabhix.identity.provisioning.SignupVerificationService;
+import com.prabhix.identity.common.ErrorCode;
 import com.prabhix.identity.user.IdentityUser;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * Creating an account, on the same origin as signing into one.
@@ -30,8 +30,10 @@ import java.util.UUID;
  * password field of its own — a console that never sees a password cannot leak one, and there is one
  * place to change if what a password has to be ever changes.
  *
- * <p>Ends in a live session and resumes whatever authorization request was waiting, so signing up and
- * then being asked to sign in — which is what a signup form in a console does — does not happen.
+ * <p>The form does not insert an account. Name, address, workspace and password hash wait in Redis
+ * for ten minutes, and the session keeps only the random key for that hold. The database row is
+ * written when the emailed code matches, and the browser is signed in on the same request, so
+ * signing up and then being asked to sign in does not happen.
  */
 @Slf4j
 @Controller
@@ -46,8 +48,7 @@ public class SignupController {
     private final HostedSignIn hostedSignIn;
     private final SignInBrand brands;
     private final HttpSessionRequestCache savedRequests = new HttpSessionRequestCache();
-    private static final String PENDING_USER = "signup.pending.user";
-    private static final String PENDING_EMAIL = "signup.pending.email";
+    private static final String PENDING_TOKEN = "signup.pending.token";
 
     @GetMapping("/signup")
     public String form(@RequestParam(required = false) String email,
@@ -70,7 +71,7 @@ public class SignupController {
     }
 
     /**
-     * Creates the account and its workspace, then signs the browser in.
+     * Holds the signup and sends the code. The account is not created here.
      *
      * <p>Redisplays the form on failure with everything except the password still filled in. Losing a
      * typed organization name and full name to a rejected password is a small thing that reads as the
@@ -83,7 +84,7 @@ public class SignupController {
                          @RequestParam(required = false) String organization,
                          HttpServletRequest request,
                          HttpServletResponse response,
-                         Model model) throws IOException, ServletException {
+                         Model model) {
         boolean shopLater = shopLater(request, response);
         if (!shopLater && (organization == null || organization.isBlank())) {
             model.addAttribute("error", "A workspace name is required.");
@@ -96,20 +97,9 @@ public class SignupController {
             return "signup";
         }
         try {
-            IdentityUser user = signup.createAccount(email, password, name);
-            try {
-                verification.send(user, request.getRemoteAddr());
-                // Provision only after mail was accepted, so an undeliverable OTP cannot leave an
-                // orphan workspace. It happens before the code is entered so abandoning this tab can
-                // be recovered through the normal emailed-code sign-in without losing the workspace.
-                signup.provision(user, shopLater ? null : organization.trim());
-            } catch (RuntimeException incompleteSignup) {
-                signup.withdrawIncomplete(user);
-                throw incompleteSignup;
-            }
-            request.getSession().setAttribute(PENDING_USER, user.getId());
-            request.getSession().setAttribute(PENDING_EMAIL, user.getEmail());
-            return verificationPage(user.getEmail(), null, request, response, model);
+            String token = verification.begin(email, password, name, shopLater ? null : organization.trim());
+            request.getSession().setAttribute(PENDING_TOKEN, token);
+            return verificationPage(verification.address(token), null, request, response, model);
         } catch (ApiException ex) {
             // Passed through rather than replaced by one generic line, unlike the login page. The
             // reasons here are all things the person can act on — the address is taken, the password is
@@ -132,19 +122,23 @@ public class SignupController {
                          HttpServletRequest request,
                          HttpServletResponse response,
                          Model model) throws IOException, ServletException {
-        UUID userId = pendingUser(request);
-        String email = (String) request.getSession().getAttribute(PENDING_EMAIL);
-        if (userId == null || email == null) {
+        String token = pendingToken(request);
+        String email = token == null ? null : verification.address(token);
+        if (token == null || email == null) {
+            clearPending(request);
             return "redirect:/signup";
         }
         try {
-            IdentityUser user = verification.verify(userId, email, code);
+            IdentityUser user = verification.confirm(token, code);
             clearPending(request);
             // The OTP is the factor that activated this account; the password was only chosen.
             hostedSignIn.completeAndRedirect(
                     user, FactorGrantedAuthority.OTT_AUTHORITY, request, response);
             return null;
         } catch (ApiException ex) {
+            if (ex.getCode() == ErrorCode.OTP_EXPIRED || ex.getCode() == ErrorCode.OTP_ATTEMPTS_EXCEEDED) {
+                clearPending(request);
+            }
             return verificationPage(email, ex.getMessage(), request, response, model);
         }
     }
@@ -153,16 +147,20 @@ public class SignupController {
     public String resend(HttpServletRequest request,
                          HttpServletResponse response,
                          Model model) {
-        UUID userId = pendingUser(request);
-        String email = (String) request.getSession().getAttribute(PENDING_EMAIL);
-        if (userId == null || email == null) {
+        String token = pendingToken(request);
+        String email = token == null ? null : verification.address(token);
+        if (token == null || email == null) {
+            clearPending(request);
             return "redirect:/signup";
         }
         try {
-            verification.resend(userId, request.getRemoteAddr());
+            verification.resend(token);
             model.addAttribute("notice", "A new code was sent.");
             return verificationPage(email, null, request, response, model);
         } catch (ApiException ex) {
+            if (ex.getCode() == ErrorCode.OTP_EXPIRED) {
+                clearPending(request);
+            }
             return verificationPage(email, ex.getMessage(), request, response, model);
         }
     }
@@ -176,14 +174,13 @@ public class SignupController {
         return "signup-verify";
     }
 
-    private UUID pendingUser(HttpServletRequest request) {
-        Object value = request.getSession().getAttribute(PENDING_USER);
-        return value instanceof UUID id ? id : null;
+    private String pendingToken(HttpServletRequest request) {
+        Object value = request.getSession().getAttribute(PENDING_TOKEN);
+        return value instanceof String token && !token.isBlank() ? token : null;
     }
 
     private void clearPending(HttpServletRequest request) {
-        request.getSession().removeAttribute(PENDING_USER);
-        request.getSession().removeAttribute(PENDING_EMAIL);
+        request.getSession().removeAttribute(PENDING_TOKEN);
     }
 
     /** MobiStack's authorize request is what was saved before this page opened. */

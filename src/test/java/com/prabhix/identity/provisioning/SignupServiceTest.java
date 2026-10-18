@@ -2,7 +2,6 @@ package com.prabhix.identity.provisioning;
 
 import com.prabhix.identity.common.ApiException;
 import com.prabhix.identity.common.ErrorCode;
-import com.prabhix.identity.user.CredentialService;
 import com.prabhix.identity.user.IdentityUser;
 import com.prabhix.identity.user.IdentityUserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +39,6 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class SignupServiceTest {
 
-    @Mock private CredentialService credentials;
     @Mock private PlatformProvisioning platform;
     @Mock private IdentityUserRepository users;
 
@@ -50,32 +48,29 @@ class SignupServiceTest {
 
     @BeforeEach
     void setUp() {
-        signup = new SignupService(credentials, platform, users);
+        signup = new SignupService(platform, users);
 
         account = new IdentityUser();
         account.setId(UUID.randomUUID());
         account.setEmail("someone@example.com");
         account.setFullName("Someone");
 
-        when(credentials.create(any(), any(), any())).thenReturn(account);
         when(platform.configured()).thenReturn(true);
     }
 
     @Test
     void accountWithoutAWorkspaceSkipsThePlatform() {
-        assertSame(account, signup.signUp("someone@example.com", "long-enough-password", "Someone", " "));
+        assertSame(account, signup.provision(account, " "));
 
-        verify(credentials).create("someone@example.com", "long-enough-password", "Someone");
         verify(platform, never()).createOrganization(any(), any());
     }
 
     @Test
-    void createsTheAccountAndItsWorkspace() {
+    void createsTheWorkspaceForTheVerifiedAccount() {
         when(platform.createOrganization(account, "Acme")).thenReturn(UUID.randomUUID());
 
-        assertSame(account, signup.signUp("someone@example.com", "long-enough-password", "Someone", "Acme"));
+        assertSame(account, signup.provision(account, "Acme"));
 
-        verify(credentials).create("someone@example.com", "long-enough-password", "Someone");
         verify(platform).createOrganization(account, "Acme");
         // Nothing withdrawn on the happy path, which is the other half of the guarantee.
         verify(users, never()).save(any());
@@ -86,8 +81,7 @@ class SignupServiceTest {
         doThrow(ApiException.of(ErrorCode.INTERNAL_ERROR, "platform is down"))
                 .when(platform).createOrganization(eq(account), any());
 
-        assertThrows(ApiException.class,
-                () -> signup.signUp("someone@example.com", "long-enough-password", "Someone", "Acme"));
+        assertThrows(ApiException.class, () -> signup.provision(account, "Acme"));
 
         ArgumentCaptor<IdentityUser> saved = ArgumentCaptor.forClass(IdentityUser.class);
         verify(users).save(saved.capture());
@@ -105,24 +99,9 @@ class SignupServiceTest {
                 .when(platform).createOrganization(eq(account), any());
         when(users.save(any())).thenThrow(new IllegalStateException("database gone too"));
 
-        ApiException thrown = assertThrows(ApiException.class,
-                () -> signup.signUp("someone@example.com", "long-enough-password", "Someone", "Acme"));
+        ApiException thrown = assertThrows(ApiException.class, () -> signup.provision(account, "Acme"));
 
         assertSame(ErrorCode.INTERNAL_ERROR, thrown.getCode());
-    }
-
-    @Test
-    void doesNotTouchTheAccountWhenTheAddressIsAlreadyTaken() {
-        // The account was never created, so there is nothing to withdraw. Withdrawing here would mean
-        // soft-deleting somebody else's existing account because a stranger guessed their address.
-        when(credentials.create(any(), any(), any()))
-                .thenThrow(ApiException.of(ErrorCode.ALREADY_EXISTS, "An account already uses that email"));
-
-        assertThrows(ApiException.class,
-                () -> signup.signUp("someone@example.com", "long-enough-password", "Someone", "Acme"));
-
-        verify(users, never()).save(any());
-        verify(platform, never()).createOrganization(any(), any());
     }
 
     @Test
