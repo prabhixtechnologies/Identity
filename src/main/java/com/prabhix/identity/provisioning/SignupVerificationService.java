@@ -32,7 +32,11 @@ public class SignupVerificationService {
         try {
             mailer.sendSignupOtp(issued.email(), issued.name(), issued.code(), expiryMinutes());
         } catch (RuntimeException ex) {
-            pending.discard(issued.token());
+            try {
+                pending.discard(issued.token());
+            } catch (RuntimeException cleanup) {
+                ex.addSuppressed(cleanup);
+            }
             throw ex;
         }
         return issued.token();

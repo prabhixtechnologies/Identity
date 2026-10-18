@@ -8,7 +8,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 /** Redis backing for a pending signup. A cache outage refuses the signup rather than writing a user. */
@@ -52,15 +51,30 @@ class RedisSignupCache implements SignupCache {
         if (keys == null || keys.length == 0) {
             return;
         }
-        try {
-            redis.delete(Arrays.asList(keys));
-        } catch (RuntimeException ex) {
-            throw unavailable(ex);
+        // One key per command. ElastiCache Serverless rejects a multi-key delete when the
+        // signup token and the address index land in different slots.
+        RuntimeException failure = null;
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+            try {
+                redis.delete(key);
+            } catch (RuntimeException ex) {
+                if (failure == null) {
+                    failure = ex;
+                }
+            }
+        }
+        if (failure != null) {
+            throw unavailable(failure);
         }
     }
 
     private static ApiException unavailable(RuntimeException ex) {
-        log.warn("Signup cache unavailable: {}", ex.toString());
+        Throwable cause = ex.getCause();
+        log.warn("Signup cache unavailable: {}{}", ex,
+                cause == null || cause == ex ? "" : " caused by " + cause);
         return ApiException.of(ErrorCode.DEPENDENCY_UNAVAILABLE,
                 "Sign-up is temporarily unavailable. Try again in a moment.");
     }
